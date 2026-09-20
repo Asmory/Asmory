@@ -81,7 +81,9 @@
 - [x] deterministic local publication candidate
 - [x] authenticated remote candidate + Artifact staging transition
 - [x] persistent staged Package/version ownership state
-- [ ] validated promotion from staged candidate to active Release
+- [x] server-derived promotion from staged candidate to active Release
+- [x] server-side semantic fingerprint recomputation during promotion
+- [x] public resolver-facing active Package/Release/download API
 
 ## M3 — Real index/storage
 
@@ -94,7 +96,7 @@
 - [x] persistent content-addressed publication staging backend
 - [x] bearer-token authenticated candidate/Artifact write API
 - [x] immutable + idempotent staged Package/version records
-- [ ] active Release promotion/index backend
+- [x] active Release promotion/index backend
 - [ ] server-side search index
 
 ## M2.5 — Semantic Type System MVP

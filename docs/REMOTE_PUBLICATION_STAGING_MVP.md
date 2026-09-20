@@ -31,6 +31,6 @@ authentication, first-publisher Package ownership, immutable Package/version
 records, idempotent retries, restart persistence and fail-closed digest
 verification.
 
-The next publication milestone is promotion: enrich/validate the candidate with
-full Release + Semantic + Variant metadata and atomically promote it into the
-active resolver index.
+The next transition is now implemented by `asmory promote`: the Registry derives
+Package, Semantic and Machine Variant metadata from the exact staged Artifact and
+persists an immutable active Release. See `PROMOTION_GATE_MVP.md`.

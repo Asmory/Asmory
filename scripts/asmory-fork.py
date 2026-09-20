@@ -174,6 +174,69 @@ def copy_tree(source: Path, destination: Path) -> None:
     walk(source, destination, root_level=True)
 
 
+def rewrite_asm_identity(package_root: Path, new_name: str) -> None:
+    path = package_root / "asm.toml"
+    if not path.is_file() or path.is_symlink():
+        raise ForkError("fork source lacks regular asm.toml package metadata")
+
+    try:
+        data = tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ForkError(f"cannot read fork source asm.toml: {exc}") from exc
+
+    package = data.get("package")
+    if not isinstance(package, dict):
+        raise ForkError("fork source asm.toml lacks [package]")
+
+    old_name = package.get("name")
+    old_version = package.get("version")
+    if not isinstance(old_name, str) or not isinstance(old_version, str):
+        raise ForkError("fork source asm.toml Package identity is malformed")
+
+    lines = path.read_text().splitlines()
+    section = None
+    name_count = 0
+    version_count = 0
+    output = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped[1:-1].strip()
+
+        if section == "package" and stripped.startswith("name") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key == "name":
+                output.append(f'name = "{new_name}"')
+                name_count += 1
+                continue
+
+        if section == "package" and stripped.startswith("version") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key == "version":
+                output.append('version = "0.1.0"')
+                version_count += 1
+                continue
+
+        output.append(line)
+
+    if name_count != 1 or version_count != 1:
+        raise ForkError("fork source asm.toml must contain one package name and version")
+
+    text = "\n".join(output) + "\n"
+    try:
+        rewritten = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ForkError(f"rewritten fork asm.toml is invalid: {exc}") from exc
+
+    if rewritten["package"].get("name") != new_name:
+        raise ForkError("fork source asm.toml name rewrite failed")
+    if rewritten["package"].get("version") != "0.1.0":
+        raise ForkError("fork source asm.toml version rewrite failed")
+
+    path.write_text(text)
+
+
 def git_origin(root: Path) -> str:
     proc = run(["git", "remote", "get-url", "origin"], cwd=root)
     value = proc.stdout.strip()
@@ -360,6 +423,11 @@ def fork_dependency(root: Path, package: str, new_name: str) -> int:
                     f"fork copy verification failed: {copied_tree} != {source_tree}"
                 )
 
+            # The copied bytes are now proven equal to the source ancestry.
+            # Only after that proof do we establish the new Package identity
+            # inside source Artifact metadata.
+            rewrite_asm_identity(candidate, new_name)
+
             manifest = render_package_manifest(
                 new_name,
                 dep,
@@ -423,6 +491,7 @@ def fork_dependency(root: Path, package: str, new_name: str) -> int:
     print(f"  new package  {new_name}@0.1.0")
     print(f"  member       {member}")
     print("  identity     independent")
+    print("  source id    rewritten")
     print("  repository   current Git repository only")
     print("  clone        not performed")
     return 0

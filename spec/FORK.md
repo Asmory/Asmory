@@ -168,3 +168,21 @@ authenticated staging API.
 The resulting remote state is persistent and immutable for the staged
 `(Package, version)`, but remains `resolvable = false` until a future promotion
 step validates a complete Release/Variant publication contract.
+
+## Forked source identity
+
+A fork rewrites the copied source `asm.toml` Package name/version to the new
+identity after verifying the copied tree still matches the exact source tree.
+
+The pre-rewrite tree remains recorded as fork ancestry. The rewritten
+`asm.toml` then becomes part of the new source Artifact and is independently
+checked by the Registry promotion gate.
+
+## Forked source identity
+
+A fork rewrites the copied source `asm.toml` Package name/version to the new
+identity after verifying the copied tree still matches the exact source tree.
+
+The pre-rewrite tree remains recorded as fork ancestry. The rewritten
+`asm.toml` then becomes part of the new source Artifact and is independently
+checked by the Registry promotion gate.

@@ -102,6 +102,8 @@ grep -q 'local tuned fork' packages/my-dot/src/dot.S
 [[ ! -e packages/my-dot/docs ]]
 
 grep -q '^name = "my-dot"$' packages/my-dot/asmory.package.toml
+grep -q '^name = "my-dot"$' packages/my-dot/asm.toml
+grep -q '^version = "0.1.0"$' packages/my-dot/asm.toml
 grep -q '^version = "0.1.0"$' packages/my-dot/asmory.package.toml
 grep -q '^kind = "asmory-fork"$' packages/my-dot/asmory.package.toml
 grep -q '^package = "simd-dot"$' packages/my-dot/asmory.package.toml

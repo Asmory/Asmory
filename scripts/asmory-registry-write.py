@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import fcntl
 import hashlib
 import hmac
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
+import socket
 import stat
 import sys
+import tarfile
 import tempfile
+import tomllib
 from urllib.parse import urlsplit
 
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9._-]*")
 VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z.-]+)?")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
 OWNER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+@/-]{0,255}")
 MAX_CANDIDATE = 1024 * 1024
+MAX_PROMOTION_REQUEST = 64 * 1024
+MAX_METADATA_FILE = 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 10_000
 DEFAULT_MAX_ARTIFACT = 8 * 1024 * 1024 * 1024
+DEFAULT_MAX_UNPACKED = 512 * 1024 * 1024
 
 
 class RegistryError(RuntimeError):
@@ -33,7 +42,50 @@ def canonical_json(value: dict) -> bytes:
     return (
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         + "\n"
-    ).encode()
+    ).encode("utf-8")
+
+
+def _normalize(value):
+    if isinstance(value, dict):
+        return {k: _normalize(value[k]) for k in sorted(value)}
+    if isinstance(value, list):
+        if all(isinstance(x, str) for x in value):
+            return sorted(set(value))
+        return [_normalize(x) for x in value]
+    return value
+
+
+def canonical_semantics(doc: dict) -> dict:
+    if "semantics" in doc:
+        sem = dict(doc["semantics"])
+        capability = doc.get("profile", {}).get("capability")
+    else:
+        sem = {
+            "interface": dict(doc["interface"]),
+            "requires": dict(doc.get("requires", {})),
+            "guarantees": dict(doc.get("guarantees", {})),
+        }
+        capability = doc["capability"]
+
+    return _normalize(
+        {
+            "schema": 1,
+            "capability": capability,
+            "interface": sem.get("interface", {}),
+            "requires": sem.get("requires", {}),
+            "guarantees": sem.get("guarantees", {}),
+        }
+    )
+
+
+def semantic_fingerprint(doc: dict) -> str:
+    body = json.dumps(
+        canonical_semantics(doc),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(body).hexdigest()
 
 
 def fsync_dir(path: Path) -> None:
@@ -68,16 +120,45 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def safe_relpath(text: str, label: str) -> PurePosixPath:
+    if not isinstance(text, str) or not text:
+        raise RegistryError(422, f"{label} path is missing")
+
+    if "\\" in text:
+        raise RegistryError(422, f"{label} path must use POSIX separators")
+
+    path = PurePosixPath(text)
+    if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        raise RegistryError(422, f"{label} path is unsafe: {text!r}")
+    return path
+
+
 class RegistryState:
-    def __init__(self, data_dir: Path, auth_file: Path, max_artifact: int):
+    def __init__(
+        self,
+        data_dir: Path,
+        auth_file: Path,
+        max_artifact: int,
+        max_unpacked: int,
+    ):
         self.data_dir = data_dir
         self.auth_file = auth_file
         self.max_artifact = max_artifact
+        self.max_unpacked = max_unpacked
+
         self.objects = data_dir / "objects" / "sha256"
         self.projects = data_dir / "projects"
+        self.active = data_dir / "active" / "projects"
         self.locks = data_dir / "locks"
         self.incoming = data_dir / "incoming"
-        for path in (self.objects, self.projects, self.locks, self.incoming):
+
+        for path in (
+            self.objects,
+            self.projects,
+            self.active,
+            self.locks,
+            self.incoming,
+        ):
             path.mkdir(parents=True, exist_ok=True)
 
     def auth_owner(self, header: str | None) -> str:
@@ -139,6 +220,21 @@ class RegistryState:
     def candidate_path(self, package: str, version: str) -> Path:
         return self.projects / package / "candidates" / f"{version}.json"
 
+    def active_release_path(self, package: str, version: str) -> Path:
+        return self.active / package / "releases" / f"{version}.json"
+
+    def active_versions(self, package: str) -> list[str]:
+        releases = self.active / package / "releases"
+        if not releases.is_dir():
+            return []
+        versions = []
+        for path in releases.iterdir():
+            if path.is_file() and path.suffix == ".json":
+                version = path.stem
+                if VERSION_RE.fullmatch(version):
+                    versions.append(version)
+        return sorted(versions)
+
     def validate_candidate(self, raw: bytes) -> dict:
         if len(raw) > MAX_CANDIDATE:
             raise RegistryError(413, "candidate exceeds 1 MiB")
@@ -184,8 +280,7 @@ class RegistryState:
         if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
             raise RegistryError(400, "candidate Git commit invalid")
         subdir = source.get("subdir")
-        if not isinstance(subdir, str) or not subdir or ".." in subdir.split("/"):
-            raise RegistryError(400, "candidate Git subdir invalid")
+        safe_relpath(subdir, "candidate Git subdir")
 
         if not isinstance(artifact, dict):
             raise RegistryError(400, "candidate Artifact missing")
@@ -208,8 +303,20 @@ class RegistryState:
             raise RegistryError(400, "candidate Package boundary declaration invalid")
 
         origin = obj.get("origin")
-        if origin is not None and not isinstance(origin, dict):
-            raise RegistryError(400, "candidate origin must be null or object")
+        if origin is not None:
+            if not isinstance(origin, dict):
+                raise RegistryError(400, "candidate origin must be null or object")
+            for key in (
+                "artifact_sha256",
+                "base_tree_sha256",
+                "source_tree_sha256",
+                "semantic_fingerprint",
+            ):
+                value = origin.get(key)
+                if value is not None and (
+                    not isinstance(value, str) or SHA_RE.fullmatch(value) is None
+                ):
+                    raise RegistryError(400, f"candidate origin {key} invalid")
 
         return obj
 
@@ -232,7 +339,11 @@ class RegistryState:
         except (OSError, json.JSONDecodeError) as exc:
             raise RegistryError(500, f"project ownership record invalid: {exc}") from exc
         owner = data.get("owner")
-        if data.get("schema") != 1 or data.get("package") != package or not isinstance(owner, str):
+        if (
+            data.get("schema") != 1
+            or data.get("package") != package
+            or not isinstance(owner, str)
+        ):
             raise RegistryError(500, "project ownership record invalid")
         return owner
 
@@ -241,7 +352,10 @@ class RegistryState:
         existing = self.read_owner(package)
         if existing is not None:
             if existing != owner:
-                raise RegistryError(403, f"Package is owned by another publisher: {existing}")
+                raise RegistryError(
+                    403,
+                    f"Package is owned by another publisher: {existing}",
+                )
             return False
 
         data = {
@@ -264,9 +378,412 @@ class RegistryState:
         except OSError:
             pass
 
+    def load_staged_record(self, package: str, version: str) -> dict:
+        path = self.candidate_path(package, version)
+        if not path.is_file():
+            raise RegistryError(404, "staged Package version not found")
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RegistryError(500, f"staged candidate record invalid: {exc}") from exc
+
+        if (
+            record.get("schema") != 1
+            or record.get("kind") != "asmory-staged-release"
+            or record.get("package") != package
+            or record.get("version") != version
+        ):
+            raise RegistryError(500, "staged candidate record invalid")
+        return record
+
+    def read_archive_contract(self, candidate: dict) -> dict:
+        package = candidate["package"]["name"]
+        version = candidate["package"]["version"]
+        artifact_meta = candidate["artifact"]
+        object_path = self.verify_object(
+            artifact_meta["sha256"],
+            artifact_meta["size"],
+        )
+
+        root_prefix = f"{package}/"
+        members: dict[str, tarfile.TarInfo] = {}
+        total = 0
+
+        try:
+            with tarfile.open(object_path, "r:gz") as tf:
+                infos = tf.getmembers()
+                if len(infos) > MAX_ARCHIVE_MEMBERS:
+                    raise RegistryError(422, "Artifact archive contains too many entries")
+
+                for info in infos:
+                    raw_name = info.name
+                    if "\\" in raw_name:
+                        raise RegistryError(422, "Artifact member uses non-POSIX path")
+
+                    path = PurePosixPath(raw_name)
+                    if path.is_absolute() or any(
+                        part in ("", ".", "..") for part in path.parts
+                    ):
+                        raise RegistryError(422, f"unsafe Artifact path: {raw_name!r}")
+
+                    normalized = path.as_posix()
+                    if normalized in members:
+                        raise RegistryError(422, f"duplicate Artifact path: {normalized}")
+
+                    if not (
+                        info.isdir()
+                        or info.isreg()
+                    ):
+                        raise RegistryError(
+                            422,
+                            f"Artifact contains unsupported member type: {normalized}",
+                        )
+
+                    if not (
+                        normalized == package
+                        or normalized.startswith(root_prefix)
+                    ):
+                        raise RegistryError(
+                            422,
+                            "Artifact escapes declared Package root",
+                        )
+
+                    if info.isreg():
+                        total += info.size
+                        if total > self.max_unpacked:
+                            raise RegistryError(
+                                422,
+                                "Artifact unpacked size exceeds Registry limit",
+                            )
+
+                    members[normalized] = info
+
+                required = {
+                    f"{package}/asm.toml",
+                    f"{package}/semantics.toml",
+                    f"{package}/conformance/suite.toml",
+                }
+
+                for name in required:
+                    info = members.get(name)
+                    if info is None or not info.isreg():
+                        raise RegistryError(
+                            422,
+                            f"Artifact promotion metadata missing: {name}",
+                        )
+                    if info.size > MAX_METADATA_FILE:
+                        raise RegistryError(
+                            422,
+                            f"Artifact metadata file too large: {name}",
+                        )
+
+                def read_toml(name: str) -> dict:
+                    info = members[name]
+                    extracted = tf.extractfile(info)
+                    if extracted is None:
+                        raise RegistryError(422, f"cannot read Artifact metadata: {name}")
+                    try:
+                        raw = extracted.read(MAX_METADATA_FILE + 1)
+                        if len(raw) > MAX_METADATA_FILE:
+                            raise RegistryError(
+                                422,
+                                f"Artifact metadata file too large: {name}",
+                            )
+                        return tomllib.loads(raw.decode("utf-8"))
+                    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+                        raise RegistryError(
+                            422,
+                            f"Artifact metadata TOML invalid: {name}: {exc}",
+                        ) from exc
+
+                manifest = read_toml(f"{package}/asm.toml")
+                semantics = read_toml(f"{package}/semantics.toml")
+                suite = read_toml(f"{package}/conformance/suite.toml")
+
+        except tarfile.TarError as exc:
+            raise RegistryError(422, f"Artifact archive invalid: {exc}") from exc
+
+        pkg = manifest.get("package")
+        if not isinstance(pkg, dict):
+            raise RegistryError(422, "asm.toml [package] table missing")
+        if pkg.get("name") != package or pkg.get("version") != version:
+            raise RegistryError(
+                422,
+                "Artifact asm.toml Package identity does not match staged candidate",
+            )
+
+        sem_ref = manifest.get("semantics")
+        if not isinstance(sem_ref, dict):
+            raise RegistryError(422, "asm.toml [semantics] table missing")
+
+        if semantics.get("schema") != 1:
+            raise RegistryError(422, "semantics.toml schema unsupported")
+
+        capability = semantics.get("capability")
+        profile = semantics.get("profile")
+        if not isinstance(capability, str) or not capability:
+            raise RegistryError(422, "semantic Capability missing")
+        if not isinstance(profile, str) or not profile:
+            raise RegistryError(422, "semantic Profile missing")
+
+        if (
+            sem_ref.get("capability") != capability
+            or sem_ref.get("contract") != profile
+        ):
+            raise RegistryError(
+                422,
+                "asm.toml semantic identity disagrees with semantics.toml",
+            )
+
+        try:
+            canonical = canonical_semantics(semantics)
+            fingerprint = semantic_fingerprint(semantics)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RegistryError(
+                422,
+                f"semantic Facets cannot be canonicalized: {exc}",
+            ) from exc
+
+        target = manifest.get("target")
+        if not isinstance(target, dict):
+            raise RegistryError(422, "asm.toml [target] table missing")
+
+        for key in ("arch", "os", "object", "abi"):
+            if not isinstance(target.get(key), str) or not target[key]:
+                raise RegistryError(422, f"target.{key} missing")
+
+        isa = target.get("isa")
+        if not isinstance(isa, dict):
+            raise RegistryError(422, "asm.toml [target.isa] table missing")
+
+        baseline = isa.get("baseline")
+        required_isa = isa.get("required", [])
+        optional_isa = isa.get("optional", [])
+
+        if not isinstance(baseline, str) or not baseline:
+            raise RegistryError(422, "target.isa.baseline missing")
+        if not (
+            isinstance(required_isa, list)
+            and all(isinstance(x, str) and x for x in required_isa)
+        ):
+            raise RegistryError(422, "target.isa.required invalid")
+        if not (
+            isinstance(optional_isa, list)
+            and all(isinstance(x, str) and x for x in optional_isa)
+        ):
+            raise RegistryError(422, "target.isa.optional invalid")
+
+        toolchain = manifest.get("toolchain")
+        if not isinstance(toolchain, dict):
+            raise RegistryError(422, "asm.toml [toolchain] table missing")
+        for key in ("assembler", "min_version", "syntax"):
+            if not isinstance(toolchain.get(key), str) or not toolchain[key]:
+                raise RegistryError(422, f"toolchain.{key} missing")
+
+        build = manifest.get("build")
+        if not isinstance(build, dict):
+            raise RegistryError(422, "asm.toml [build] table missing")
+        sources = build.get("sources")
+        if not (
+            isinstance(sources, list)
+            and sources
+            and all(isinstance(x, str) and x for x in sources)
+        ):
+            raise RegistryError(422, "build.sources must be a non-empty string array")
+
+        for source in sources:
+            rel = safe_relpath(source, "build source")
+            full = f"{package}/{rel.as_posix()}"
+            info = members.get(full)
+            if info is None or not info.isreg():
+                raise RegistryError(
+                    422,
+                    f"declared build source is absent from Artifact: {source}",
+                )
+
+        exports = manifest.get("exports")
+        if not isinstance(exports, dict) or not exports:
+            raise RegistryError(422, "asm.toml exports are missing")
+
+        release_exports = []
+        for logical, exported in sorted(exports.items()):
+            if not isinstance(logical, str) or not logical:
+                raise RegistryError(422, "logical export name invalid")
+            if not isinstance(exported, dict):
+                raise RegistryError(422, f"export {logical} metadata invalid")
+            symbol = exported.get("symbol")
+            section = exported.get("section")
+            calling = exported.get("calling_convention")
+            if not all(isinstance(x, str) and x for x in (symbol, section, calling)):
+                raise RegistryError(422, f"export {logical} metadata incomplete")
+            release_exports.append(
+                {
+                    "logical": logical,
+                    "symbol": symbol,
+                    "section": section,
+                    "calling_convention": calling,
+                }
+            )
+
+        suite_table = suite.get("suite")
+        if suite.get("schema") != 1 or not isinstance(suite_table, dict):
+            raise RegistryError(422, "conformance suite metadata invalid")
+
+        suite_id = suite_table.get("id")
+        suite_profile = suite_table.get("profile")
+        runner = suite_table.get("runner")
+        facets = suite_table.get("facets")
+
+        if not isinstance(suite_id, str) or not suite_id:
+            raise RegistryError(422, "conformance suite id missing")
+        if suite_profile != profile:
+            raise RegistryError(
+                422,
+                "conformance suite Profile disagrees with semantic Profile",
+            )
+        if not isinstance(runner, str) or not runner:
+            raise RegistryError(422, "conformance suite runner missing")
+        runner_rel = safe_relpath(runner, "conformance runner")
+        runner_full = f"{package}/conformance/{runner_rel.as_posix()}"
+        info = members.get(runner_full)
+        if info is None or not info.isreg():
+            raise RegistryError(
+                422,
+                "declared conformance runner is absent from Artifact",
+            )
+
+        if not isinstance(facets, list) or not facets:
+            raise RegistryError(422, "conformance suite facet coverage missing")
+
+        facet_paths = []
+        for facet in facets:
+            if not isinstance(facet, dict):
+                raise RegistryError(422, "conformance facet entry invalid")
+            path = facet.get("path")
+            tests = facet.get("tests")
+            if not isinstance(path, str) or not path:
+                raise RegistryError(422, "conformance facet path invalid")
+            if not (
+                isinstance(tests, list)
+                and tests
+                and all(isinstance(x, str) and x for x in tests)
+            ):
+                raise RegistryError(422, f"conformance tests missing for {path}")
+            facet_paths.append(path)
+
+        origin = candidate.get("origin")
+        origin_variant = origin.get("variant") if isinstance(origin, dict) else None
+        if isinstance(origin_variant, str) and ID_RE.fullmatch(origin_variant):
+            variant_id = origin_variant
+        else:
+            variant_id = f"{target['arch']}-{baseline}-default"
+
+        variant = {
+            "id": variant_id,
+            "stability": "experimental",
+            "capability": capability,
+            "profile": profile,
+            "conformance_suite": suite_id,
+            "target": {
+                "arch": target["arch"],
+                "os": target["os"],
+                "object": target["object"],
+                "abi": target["abi"],
+                "isa": {
+                    "baseline": baseline,
+                    "required": sorted(set(required_isa)),
+                    "optional": sorted(set(optional_isa)),
+                },
+            },
+            "toolchain": {
+                "assembler": toolchain["assembler"],
+                "min_version": toolchain["min_version"],
+                "syntax": toolchain["syntax"],
+            },
+            "exports": release_exports,
+        }
+
+        return {
+            "capability": capability,
+            "profile": profile,
+            "semantic_fingerprint": fingerprint,
+            "canonical_semantics": canonical,
+            "conformance": {
+                "suite": suite_id,
+                "runner": f"conformance/{runner_rel.as_posix()}",
+                "facet_coverage": sorted(set(facet_paths)),
+                "execution": "not-registry-executed",
+            },
+            "variant": variant,
+        }
+
+    def derive_active_release(
+        self,
+        staged_record: dict,
+        owner: str,
+    ) -> dict:
+        candidate = staged_record["candidate"]
+        contract = self.read_archive_contract(candidate)
+        package = candidate["package"]["name"]
+        version = candidate["package"]["version"]
+        artifact = candidate["artifact"]
+
+        return {
+            "registry": "Asmory",
+            "schema": 5,
+            "project": package,
+            "owner": owner,
+            "candidate_sha256": staged_record["candidate_sha256"],
+            "resolvable": True,
+            "release": {
+                "version": version,
+                "state": "active",
+                "published_at": datetime.now(timezone.utc).replace(
+                    microsecond=0
+                ).isoformat().replace("+00:00", "Z"),
+                "source": candidate["source"],
+                "origin": candidate.get("origin"),
+                "capability": contract["capability"],
+                "profile": contract["profile"],
+                "semantic_fingerprint": contract["semantic_fingerprint"],
+                "canonical_semantics": contract["canonical_semantics"],
+                "conformance": contract["conformance"],
+                "review": {
+                    "state": "unreviewed",
+                    "reviewed_anchor": False,
+                },
+                "safety": {
+                    "state": "normal",
+                    "advisories": [],
+                },
+                "variants": [contract["variant"]],
+                "artifacts": [
+                    {
+                        "kind": artifact["kind"],
+                        "filename": artifact["filename"],
+                        "content_type": "application/gzip",
+                        "size": artifact["size"],
+                        "sha256": artifact["sha256"],
+                        "download": (
+                            f"/api/v1/packages/{package}/{version}/download"
+                        ),
+                    }
+                ],
+                "promotion_validation": {
+                    "server_derived_from_artifact": True,
+                    "package_identity_consistent": True,
+                    "semantic_fingerprint_recomputed": True,
+                    "machine_contract_declared": True,
+                    "source_members_verified": True,
+                    "conformance_suite_declared": True,
+                    "code_execution": False,
+                },
+            },
+        }
+
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "AsmoryWrite/0.1"
+    server_version = "AsmoryWrite/0.2"
     protocol_version = "HTTP/1.1"
 
     @property
@@ -274,8 +791,6 @@ class Handler(BaseHTTPRequestHandler):
         return self.server.state  # type: ignore[attr-defined]
 
     def log_message(self, fmt: str, *args) -> None:
-        # Never log Authorization headers; BaseHTTPRequestHandler does not by
-        # default, and this compact log keeps publication identities visible.
         sys.stderr.write(
             f"{self.client_address[0]} {self.command} {self.path} - {fmt % args}\n"
         )
@@ -290,6 +805,28 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
+        self.close_connection = True
+
+    def send_artifact(self, artifact: dict) -> None:
+        obj = self.state.verify_object(
+            artifact["sha256"],
+            artifact["size"],
+        )
+        size = obj.stat().st_size
+        self.send_response(200)
+        self.send_header("Content-Type", "application/gzip")
+        self.send_header(
+            "Content-Disposition",
+            f'attachment; filename="{artifact["filename"]}"',
+        )
+        self.send_header("Content-Length", str(size))
+        self.send_header("Cache-Control", "public, max-age=300")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        with obj.open("rb") as f:
+            for block in iter(lambda: f.read(1024 * 1024), b""):
+                self.wfile.write(block)
         self.close_connection = True
 
     def fail(self, exc: RegistryError) -> None:
@@ -313,11 +850,95 @@ class Handler(BaseHTTPRequestHandler):
             raise RegistryError(400, "request body truncated")
         return data
 
+    def active_get(self, path: str) -> bool:
+        versions_match = re.fullmatch(
+            r"/api/v1/packages/([a-z0-9][a-z0-9._-]*)/versions",
+            path,
+        )
+        if versions_match:
+            package = versions_match.group(1)
+            versions = self.state.active_versions(package)
+            if not versions:
+                raise RegistryError(404, "active Package not found")
+            self.send_json(
+                200,
+                {
+                    "registry": "Asmory",
+                    "schema": 1,
+                    "project": package,
+                    "versions": versions,
+                },
+            )
+            return True
+
+        m = re.fullmatch(
+            r"/api/v1/packages/([a-z0-9][a-z0-9._-]*)"
+            r"(?:/([0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z.-]+)?))?"
+            r"(/download)?",
+            path,
+        )
+        if not m:
+            return False
+
+        package, version, download = m.groups()
+        if download and version is None:
+            raise RegistryError(404, "active Release download requires a version")
+        versions = self.state.active_versions(package)
+
+        if version is None:
+            if not versions:
+                raise RegistryError(404, "active Package not found")
+            owner = self.state.read_owner(package)
+            self.send_json(
+                200,
+                {
+                    "registry": "Asmory",
+                    "schema": 1,
+                    "project": {
+                        "name": package,
+                        "owner": owner,
+                        "status": "active",
+                        "versions": versions,
+                    },
+                },
+            )
+            return True
+
+        release_path = self.state.active_release_path(package, version)
+        if not release_path.is_file():
+            raise RegistryError(404, "active Release not found")
+
+        try:
+            record = json.loads(release_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RegistryError(
+                500,
+                f"active Release record invalid: {exc}",
+            ) from exc
+
+        if download:
+            artifact = record["release"]["artifacts"][0]
+            self.send_artifact(artifact)
+        else:
+            self.send_json(200, record)
+        return True
+
     def do_GET(self) -> None:
         try:
             path = urlsplit(self.path).path
+
             if path == "/healthz":
-                self.send_json(200, {"status": "ok", "service": "asmory-registry-write"})
+                self.send_json(
+                    200,
+                    {
+                        "status": "ok",
+                        "service": "asmory-registry-write",
+                        "promotion": True,
+                    },
+                )
+                return
+
+            if self.active_get(path):
                 return
 
             owner = self.require_owner()
@@ -328,7 +949,7 @@ class Handler(BaseHTTPRequestHandler):
                 path,
             )
             if not m:
-                raise RegistryError(404, "staging resource not found")
+                raise RegistryError(404, "resource not found")
 
             package, version, download = m.groups()
             project_owner = self.state.read_owner(package)
@@ -337,34 +958,13 @@ class Handler(BaseHTTPRequestHandler):
             if project_owner != owner:
                 raise RegistryError(403, "publisher does not own staged Package")
 
-            candidate_path = self.state.candidate_path(package, version)
-            if not candidate_path.is_file():
-                raise RegistryError(404, "staged version not found")
-
-            record = json.loads(candidate_path.read_text())
+            record = self.state.load_staged_record(package, version)
 
             if download:
-                candidate = record["candidate"]
-                artifact = candidate["artifact"]
-                obj = self.state.verify_object(artifact["sha256"], artifact["size"])
-                size = obj.stat().st_size
-                self.send_response(200)
-                self.send_header("Content-Type", "application/gzip")
-                self.send_header(
-                    "Content-Disposition",
-                    f'attachment; filename="{artifact["filename"]}"',
-                )
-                self.send_header("Content-Length", str(size))
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Connection", "close")
-                self.end_headers()
-                with obj.open("rb") as f:
-                    for block in iter(lambda: f.read(1024 * 1024), b""):
-                        self.wfile.write(block)
-                self.close_connection = True
-                return
+                self.send_artifact(record["candidate"]["artifact"])
+            else:
+                self.send_json(200, record)
 
-            self.send_json(200, record)
         except RegistryError as exc:
             self.fail(exc)
         except OSError as exc:
@@ -447,6 +1047,7 @@ class Handler(BaseHTTPRequestHandler):
             finally:
                 temp.unlink(missing_ok=True)
                 temp = None
+
         except RegistryError as exc:
             self.fail(exc)
         except OSError as exc:
@@ -459,73 +1060,170 @@ class Handler(BaseHTTPRequestHandler):
         try:
             owner = self.require_owner()
             path = urlsplit(self.path).path
-            if path != "/api/v1/staging/releases":
-                raise RegistryError(404, "candidate staging endpoint not found")
 
-            length = self.content_length(MAX_CANDIDATE)
-            raw = self.read_exact(length)
-            candidate = self.state.validate_candidate(raw)
+            if path == "/api/v1/staging/releases":
+                self.stage_candidate(owner)
+                return
 
-            package = candidate["package"]["name"]
-            version = candidate["package"]["version"]
-            artifact = candidate["artifact"]
+            if path == "/api/v1/staging/promote":
+                self.promote_candidate(owner)
+                return
 
-            self.state.verify_object(artifact["sha256"], artifact["size"])
-            candidate_sha = hashlib.sha256(raw).hexdigest()
+            raise RegistryError(404, "publication write endpoint not found")
 
-            with self.state.project_lock(package):
-                claimed = self.state.claim_owner(package, owner)
-                record_path = self.state.candidate_path(package, version)
-
-                record = {
-                    "schema": 1,
-                    "kind": "asmory-staged-release",
-                    "state": "staged",
-                    "resolvable": False,
-                    "owner": owner,
-                    "package": package,
-                    "version": version,
-                    "candidate_sha256": candidate_sha,
-                    "artifact_sha256": artifact["sha256"],
-                    "candidate": candidate,
-                }
-                body = canonical_json(record)
-
-                try:
-                    if record_path.exists():
-                        existing = record_path.read_bytes()
-                        if existing != body:
-                            raise RegistryError(
-                                409,
-                                "immutable staged Package version already exists with different candidate",
-                            )
-                        status = 200
-                        state = "reused"
-                    else:
-                        atomic_write(record_path, body, 0o444)
-                        status = 201
-                        state = "stored"
-                except Exception:
-                    if claimed:
-                        self.state.rollback_owner_claim(package, owner)
-                    raise
-
-            self.send_json(
-                status,
-                {
-                    "state": state,
-                    "package": package,
-                    "version": version,
-                    "owner": owner,
-                    "candidate_sha256": candidate_sha,
-                    "artifact_sha256": artifact["sha256"],
-                    "resolvable": False,
-                },
-            )
         except RegistryError as exc:
             self.fail(exc)
         except OSError as exc:
             self.fail(RegistryError(500, f"storage failure: {exc}"))
+
+    def stage_candidate(self, owner: str) -> None:
+        length = self.content_length(MAX_CANDIDATE)
+        raw = self.read_exact(length)
+        candidate = self.state.validate_candidate(raw)
+
+        package = candidate["package"]["name"]
+        version = candidate["package"]["version"]
+        artifact = candidate["artifact"]
+
+        self.state.verify_object(artifact["sha256"], artifact["size"])
+        candidate_sha = hashlib.sha256(raw).hexdigest()
+
+        with self.state.project_lock(package):
+            claimed = self.state.claim_owner(package, owner)
+            record_path = self.state.candidate_path(package, version)
+
+            record = {
+                "schema": 1,
+                "kind": "asmory-staged-release",
+                "state": "staged",
+                "resolvable": False,
+                "owner": owner,
+                "package": package,
+                "version": version,
+                "candidate_sha256": candidate_sha,
+                "artifact_sha256": artifact["sha256"],
+                "candidate": candidate,
+            }
+            body = canonical_json(record)
+
+            try:
+                if record_path.exists():
+                    existing = record_path.read_bytes()
+                    if existing != body:
+                        raise RegistryError(
+                            409,
+                            "immutable staged Package version already exists with different candidate",
+                        )
+                    status = 200
+                    state = "reused"
+                else:
+                    atomic_write(record_path, body, 0o444)
+                    status = 201
+                    state = "stored"
+            except Exception:
+                if claimed:
+                    self.state.rollback_owner_claim(package, owner)
+                raise
+
+        self.send_json(
+            status,
+            {
+                "state": state,
+                "package": package,
+                "version": version,
+                "owner": owner,
+                "candidate_sha256": candidate_sha,
+                "artifact_sha256": artifact["sha256"],
+                "resolvable": False,
+            },
+        )
+
+    def promote_candidate(self, owner: str) -> None:
+        length = self.content_length(MAX_PROMOTION_REQUEST)
+        raw = self.read_exact(length)
+
+        try:
+            request = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise RegistryError(400, f"promotion request JSON invalid: {exc}") from exc
+
+        if not isinstance(request, dict) or canonical_json(request) != raw:
+            raise RegistryError(400, "promotion request must be canonical JSON")
+
+        if (
+            request.get("schema") != 1
+            or request.get("kind") != "asmory-promotion-request"
+        ):
+            raise RegistryError(400, "unsupported promotion request")
+
+        package = request.get("package")
+        version = request.get("version")
+        candidate_sha = request.get("candidate_sha256")
+
+        if not isinstance(package, str) or NAME_RE.fullmatch(package) is None:
+            raise RegistryError(400, "promotion Package name invalid")
+        if not isinstance(version, str) or VERSION_RE.fullmatch(version) is None:
+            raise RegistryError(400, "promotion Package version invalid")
+        if not isinstance(candidate_sha, str) or SHA_RE.fullmatch(candidate_sha) is None:
+            raise RegistryError(400, "promotion candidate SHA-256 invalid")
+
+        with self.state.project_lock(package):
+            project_owner = self.state.read_owner(package)
+            if project_owner is None:
+                raise RegistryError(404, "Package ownership/staging state not found")
+            if project_owner != owner:
+                raise RegistryError(403, "publisher does not own Package")
+
+            staged = self.state.load_staged_record(package, version)
+            if staged["owner"] != owner:
+                raise RegistryError(403, "publisher does not own staged candidate")
+            if staged["candidate_sha256"] != candidate_sha:
+                raise RegistryError(
+                    409,
+                    "promotion request does not match immutable staged candidate",
+                )
+
+            active_path = self.state.active_release_path(package, version)
+
+            if active_path.exists():
+                try:
+                    existing = json.loads(active_path.read_text())
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise RegistryError(
+                        500,
+                        f"active Release record invalid: {exc}",
+                    ) from exc
+
+                if existing.get("candidate_sha256") != candidate_sha:
+                    raise RegistryError(
+                        409,
+                        "active Package version already exists with different candidate",
+                    )
+
+                record = existing
+                state = "reused"
+                status = 200
+            else:
+                record = self.state.derive_active_release(staged, owner)
+                atomic_write(active_path, canonical_json(record), 0o444)
+                state = "promoted"
+                status = 201
+
+        self.send_json(
+            status,
+            {
+                "state": state,
+                "package": package,
+                "version": version,
+                "owner": owner,
+                "candidate_sha256": candidate_sha,
+                "artifact_sha256": staged["artifact_sha256"],
+                "semantic_fingerprint": record["release"]["semantic_fingerprint"],
+                "variant": record["release"]["variants"][0]["id"],
+                "resolvable": True,
+                "release": f"/api/v1/packages/{package}/{version}",
+            },
+        )
 
 
 def parse_args():
@@ -547,12 +1245,30 @@ def parse_args():
     )
     parser.add_argument(
         "--auth-file",
-        default=os.environ.get("ASMORY_WRITE_AUTH_FILE", "build/write-registry-auth.json"),
+        default=os.environ.get(
+            "ASMORY_WRITE_AUTH_FILE",
+            "build/write-registry-auth.json",
+        ),
     )
     parser.add_argument(
         "--max-artifact-bytes",
         type=int,
-        default=int(os.environ.get("ASMORY_WRITE_MAX_ARTIFACT_BYTES", str(DEFAULT_MAX_ARTIFACT))),
+        default=int(
+            os.environ.get(
+                "ASMORY_WRITE_MAX_ARTIFACT_BYTES",
+                str(DEFAULT_MAX_ARTIFACT),
+            )
+        ),
+    )
+    parser.add_argument(
+        "--max-unpacked-bytes",
+        type=int,
+        default=int(
+            os.environ.get(
+                "ASMORY_WRITE_MAX_UNPACKED_BYTES",
+                str(DEFAULT_MAX_UNPACKED),
+            )
+        ),
     )
     return parser.parse_args()
 
@@ -564,11 +1280,14 @@ def main() -> int:
         raise SystemExit("invalid port")
     if args.max_artifact_bytes <= 0:
         raise SystemExit("max Artifact size must be positive")
+    if args.max_unpacked_bytes <= 0:
+        raise SystemExit("max unpacked size must be positive")
 
     state = RegistryState(
         Path(args.data_dir).resolve(),
         Path(args.auth_file).resolve(),
         args.max_artifact_bytes,
+        args.max_unpacked_bytes,
     )
 
     class Server(ThreadingHTTPServer):

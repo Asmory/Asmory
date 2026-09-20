@@ -12,6 +12,7 @@ cmd_workspace:  .asciz "workspace"
 cmd_fork:       .asciz "fork"
 cmd_publish_prepare:.asciz "publish-prepare"
 cmd_publish:     .asciz "publish"
+cmd_promote:     .asciz "promote"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -31,7 +32,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -81,6 +82,10 @@ publish_argv0:       .asciz "asmory-publish"
 missing_publish_remote_msg:.asciz "asmory publish: package name required\n"
 publish_remote_backend_msg:.asciz "asmory publish: bootstrap remote publication backend unavailable\n"
 publish_remote_shell_cmd:.asciz "exec asmory-publish --remote \"$@\""
+missing_promote_msg:  .asciz "asmory promote: package name required\n"
+promote_backend_msg:  .asciz "asmory promote: bootstrap promotion backend unavailable\n"
+promote_shell_cmd:    .asciz "exec asmory-promote \"$@\""
+promote_argv0:        .asciz "asmory-promote"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -345,6 +350,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_publish_remote
+
+    mov %r13, %rdi
+    lea cmd_promote(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_promote
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -1041,6 +1052,42 @@ _start:
 
 .missing_publish_remote:
     lea missing_publish_remote_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_promote:
+    cmp $3, %r12
+    jb .missing_promote
+    cmp $4, %r12
+    jae .missing_promote
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea promote_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea promote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea promote_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_promote:
+    lea missing_promote_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

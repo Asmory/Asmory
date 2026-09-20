@@ -324,6 +324,7 @@ asmory workspace
 asmory fork simd-dot my-dot
 asmory publish-prepare my-dot
 asmory publish my-dot
+asmory promote my-dot
 asmory --version
 ```
 
@@ -363,6 +364,25 @@ Asmory will only promote a staged candidate after the full Release, Semantic
 and Machine Variant publication contract is validated.
 
 See [`spec/AUTHENTICATED_STAGING.md`](spec/AUTHENTICATED_STAGING.md).
+
+## Active Release promotion
+
+Authenticated staging is followed by an explicit promotion gate:
+
+```text
+publish -> staged / resolvable=no
+promote -> active / resolvable=yes
+```
+
+The Registry derives the active Release contract from the exact staged source
+Artifact, recomputes the Semantic Facet fingerprint and validates package,
+target, build, export and conformance metadata consistency before publishing
+the public active record.
+
+Promotion does not execute package code and does not turn an unreviewed Artifact
+into a reviewed one.
+
+See [`spec/PROMOTION_GATE.md`](spec/PROMOTION_GATE.md).
 
 ## Package model
 

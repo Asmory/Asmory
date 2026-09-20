@@ -104,6 +104,21 @@ Variant field required for resolver-visible publication.
 Promotion to an active Release is therefore an explicit later transition, not
 an automatic side effect of byte upload.
 
+## Active Release promotion gate
+
+A staged candidate becomes resolver-visible only after an explicit promotion.
+
+The Registry derives active metadata from the exact staged source Artifact,
+recomputes Semantic Facet identity and checks internal consistency between
+Package identity, semantic declarations, target/toolchain declarations, build
+sources, exports and conformance-suite metadata.
+
+Promotion does not execute untrusted package code and does not imply security
+review. Those states remain separate.
+
+Active records are immutable by `(Project, version)` and public through the
+normal `/api/v1/packages/...` read namespace.
+
 ## Immutability
 
 A previously published `(project, version, artifact filename)` may not be

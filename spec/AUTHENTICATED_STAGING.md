@@ -151,9 +151,12 @@ resolvable false
 Calling this distinction out is part of the security model, not an unfinished
 error message.
 
-A future promotion step will require complete semantic facets, Variant Machine
-Contracts, conformance evidence and policy checks before creating the active
-immutable Release.
+Active promotion is implemented as a separate gate. The Registry re-opens the
+exact staged Artifact, derives Package/Semantic/Machine metadata server-side,
+recomputes the Semantic Facet fingerprint and persists an immutable active
+Release only when those declarations are internally consistent.
+
+See `PROMOTION_GATE.md`.
 
 ## Deployment boundary
 

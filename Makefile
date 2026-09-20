@@ -18,6 +18,7 @@ VENDOR_HELPER := $(BUILD)/asmory-vendor
 WORKSPACE_HELPER := $(BUILD)/asmory-workspace
 FORK_HELPER := $(BUILD)/asmory-fork
 PUBLISH_HELPER := $(BUILD)/asmory-publish
+PROMOTE_HELPER := $(BUILD)/asmory-promote
 REGISTRY_WRITE_HELPER := $(BUILD)/asmory-registry-write
 REGISTRY_AUTH_HELPER := $(BUILD)/asmory-registry-auth
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
@@ -40,13 +41,13 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry registry-write cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke remote-publish-smoke dev clean install-user install-registry-write perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry registry-write cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke remote-publish-smoke promotion-smoke dev clean install-user install-registry-write perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry registry-write cli examples
 
 registry: $(REGISTRY_BIN)
 registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
-cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER)
+cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -131,6 +132,10 @@ $(PUBLISH_HELPER): scripts/asmory-publish.py | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
 
+$(PROMOTE_HELPER): scripts/asmory-promote.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(REGISTRY_WRITE_HELPER): scripts/asmory-registry-write.py | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
@@ -159,7 +164,7 @@ perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
 
-install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER)
+install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER)
 	install -Dm755 $(CLI_BIN) $(HOME)/.local/bin/asmory
 	install -Dm755 $(ACQUIRE_HELPER) $(HOME)/.local/bin/asmory-acquire
 	install -Dm755 $(CACHE_HELPER) $(HOME)/.local/bin/asmory-cache
@@ -171,7 +176,8 @@ install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATER
 	install -Dm755 $(WORKSPACE_HELPER) $(HOME)/.local/bin/asmory-workspace
 	install -Dm755 $(FORK_HELPER) $(HOME)/.local/bin/asmory-fork
 	install -Dm755 $(PUBLISH_HELPER) $(HOME)/.local/bin/asmory-publish
-	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta/vendor/workspace/fork/publish helpers'
+	install -Dm755 $(PROMOTE_HELPER) $(HOME)/.local/bin/asmory-promote
+	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta/vendor/workspace/fork/publish/promote helpers'
 
 install-registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
 	install -Dm755 $(REGISTRY_WRITE_HELPER) $(HOME)/.local/bin/asmory-registry-write
@@ -230,6 +236,9 @@ fork-publication-smoke: registry cli packages
 
 remote-publish-smoke: registry registry-write cli packages
 	./scripts/remote-publish-smoke.sh
+
+promotion-smoke: registry registry-write cli packages
+	./scripts/promotion-smoke.sh
 
 clean:
 	rm -rf $(BUILD)
