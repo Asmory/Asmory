@@ -9,6 +9,8 @@ cmd_patch:      .asciz "patch"
 cmd_reapply:    .asciz "reapply"
 cmd_vendor:     .asciz "vendor"
 cmd_workspace:  .asciz "workspace"
+cmd_fork:       .asciz "fork"
+cmd_publish_prepare:.asciz "publish-prepare"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -28,7 +30,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -67,6 +69,14 @@ workspace_backend_msg:.asciz "asmory workspace: bootstrap workspace backend unav
 workspace_usage_msg:  .asciz "asmory workspace: usage: asmory workspace [list|check]\n"
 workspace_shell_cmd:  .asciz "exec asmory-workspace \"${1:-list}\""
 workspace_argv0:      .asciz "asmory-workspace"
+missing_fork_msg:    .asciz "asmory fork: source package and new package name required\n"
+fork_backend_msg:    .asciz "asmory fork: bootstrap fork backend unavailable\n"
+fork_shell_cmd:      .asciz "exec asmory-fork \"$@\""
+fork_argv0:          .asciz "asmory-fork"
+missing_publish_msg: .asciz "asmory publish-prepare: package name required\n"
+publish_backend_msg: .asciz "asmory publish-prepare: bootstrap publication backend unavailable\n"
+publish_shell_cmd:   .asciz "exec asmory-publish \"$@\""
+publish_argv0:       .asciz "asmory-publish"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -125,6 +135,8 @@ init_ignore_body:
 .ascii ".restore/\n"
 .ascii ".delta/\n"
 .ascii ".vendor/\n"
+.ascii ".fork/\n"
+.ascii ".publish/\n"
 .ascii "workspace.lock\n"
 init_ignore_body_end:
 
@@ -311,6 +323,18 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_workspace
+
+    mov %r13, %rdi
+    lea cmd_fork(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_fork
+
+    mov %r13, %rdi
+    lea cmd_publish_prepare(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_publish_prepare
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -897,6 +921,80 @@ _start:
 
 .workspace_usage:
     lea workspace_usage_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_fork:
+    cmp $4, %r12
+    jb .missing_fork
+    cmp $5, %r12
+    jae .missing_fork
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea fork_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea fork_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    mov 32(%rsp), %rax
+    mov %rax, 40(%r10)
+    movq $0, 48(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea fork_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_fork:
+    lea missing_fork_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_publish_prepare:
+    cmp $3, %r12
+    jb .missing_publish
+    cmp $4, %r12
+    jae .missing_publish
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea publish_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea publish_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea publish_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_publish:
+    lea missing_publish_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

@@ -118,6 +118,17 @@ dependency.
 This boundary is what makes Package-level materialization, patch, vendor and
 future fork behavior correct even for monorepos.
 
+## Forking never widens to repository scope
+
+`asmory fork <package> <new-package>` creates one new workspace member from one
+active Package tree.
+
+It does not clone the upstream repository and does not copy sibling workspace
+members. The current repository is merely the development container for the
+new Package.
+
+> **Dependency state belongs to Package identity, never Repository identity.**
+
 ## Machine Variant is not a Package split
 
 Different ISA realizations of the same semantic software Release remain

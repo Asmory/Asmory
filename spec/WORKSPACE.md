@@ -96,3 +96,11 @@ intent. A development monorepo uses `asmory.workspace.toml` plus per-member
 Draft 0.1.
 
 See `REPOSITORY_WORKSPACE.md`.
+
+## Fork/publication runtime state
+
+Fork staging uses `.asmory/.fork/` and local publication candidates use
+`.asmory/.publish/`. Both are ignored runtime directories.
+
+Forked Package source itself lives under `packages/<name>/` and is ordinary
+Git-visible repository source.

@@ -16,6 +16,8 @@ STATE_HELPER := $(BUILD)/asmory-state
 DELTA_HELPER := $(BUILD)/asmory-delta
 VENDOR_HELPER := $(BUILD)/asmory-vendor
 WORKSPACE_HELPER := $(BUILD)/asmory-workspace
+FORK_HELPER := $(BUILD)/asmory-fork
+PUBLISH_HELPER := $(BUILD)/asmory-publish
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
@@ -36,12 +38,12 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
 registry: $(REGISTRY_BIN)
-cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER)
+cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -118,6 +120,14 @@ $(WORKSPACE_HELPER): scripts/asmory-workspace.py | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
 
+$(FORK_HELPER): scripts/asmory-fork.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
+$(PUBLISH_HELPER): scripts/asmory-publish.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -138,7 +148,7 @@ perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
 
-install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER)
+install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER)
 	install -Dm755 $(CLI_BIN) $(HOME)/.local/bin/asmory
 	install -Dm755 $(ACQUIRE_HELPER) $(HOME)/.local/bin/asmory-acquire
 	install -Dm755 $(CACHE_HELPER) $(HOME)/.local/bin/asmory-cache
@@ -148,7 +158,9 @@ install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATER
 	install -Dm755 $(DELTA_HELPER) $(HOME)/.local/bin/asmory-delta
 	install -Dm755 $(VENDOR_HELPER) $(HOME)/.local/bin/asmory-vendor
 	install -Dm755 $(WORKSPACE_HELPER) $(HOME)/.local/bin/asmory-workspace
-	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta/vendor/workspace helpers'
+	install -Dm755 $(FORK_HELPER) $(HOME)/.local/bin/asmory-fork
+	install -Dm755 $(PUBLISH_HELPER) $(HOME)/.local/bin/asmory-publish
+	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta/vendor/workspace/fork/publish helpers'
 
 dev: clean all check smoke cli-smoke
 
@@ -196,6 +208,9 @@ vendor-smoke: registry cli packages
 
 repo-workspace-smoke: cli packages
 	./scripts/repo-workspace-smoke.sh
+
+fork-publication-smoke: registry cli packages
+	./scripts/fork-publication-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

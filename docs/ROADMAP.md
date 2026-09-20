@@ -76,7 +76,10 @@
 - [x] existing Release identity preserved across workspace metadata migration
 - [x] publish provenance model: repository + commit + subdir
 - [x] dirty-worktree publish provenance guard
-- [ ] fork/publication transition
+- [x] Package-level fork identity transition
+- [x] fork ancestry binds original Artifact + actual local source tree
+- [x] deterministic local publication candidate
+- [ ] authenticated remote publication transition
 
 ## M3 — Real index/storage
 

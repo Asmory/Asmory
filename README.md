@@ -321,6 +321,8 @@ asmory patch simd-dot
 asmory reapply simd-dot
 asmory vendor simd-dot
 asmory workspace
+asmory fork simd-dot my-dot
+asmory publish-prepare my-dot
 asmory --version
 ```
 

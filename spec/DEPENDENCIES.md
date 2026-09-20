@@ -328,6 +328,25 @@ make sibling Packages dirty.
 Shared reusable source across Package roots must be represented explicitly as
 a Package dependency rather than an implicit include escaping the Package root.
 
+## Independent Package fork
+
+A fork is neither a vendor alias nor a Git repository clone.
+
+```text
+current dependency Package tree
+    -> asmory fork old new
+new independent Package identity
+```
+
+The source may be Exact or Modified, registry-derived or already vendored.
+
+Only the active Package tree crosses the fork boundary. Sibling Packages from
+the upstream Git repository are never implicitly cloned or copied.
+
+Fork ancestry records both the original Registry Artifact and the exact local
+tree that was forked. The original dependency remains in place until the user
+explicitly changes project dependency intent.
+
 ## Leaf-first default
 
 Asmory v1 should default to direct, leaf dependencies.

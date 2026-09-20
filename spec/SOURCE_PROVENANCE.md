@@ -65,3 +65,13 @@ Packages.
 A Git commit or Git tag is not itself an Asmory Release.
 
 A commit may change multiple Packages while only one Package is published.
+
+## Publication candidate
+
+`asmory publish-prepare <package>` requires clean Package Git provenance and
+creates a deterministic local release candidate. For forked Packages the
+candidate carries `[origin]` ancestry alongside `repository + commit + subdir`
+and the exact source Artifact SHA-256.
+
+The candidate is not a remote publication. Authentication and Registry writes
+remain separate M3 work.

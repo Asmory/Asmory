@@ -37,6 +37,8 @@ grep -q '^\.staging/$' .asmory/.gitignore
 grep -q '^\.restore/$' .asmory/.gitignore
 grep -q '^\.delta/$' .asmory/.gitignore
 grep -q '^\.vendor/$' .asmory/.gitignore
+grep -q '^\.fork/$' .asmory/.gitignore
+grep -q '^\.publish/$' .asmory/.gitignore
 grep -q '^workspace\.lock$' .asmory/.gitignore
 
 before_manifest="$(sha256sum asm.toml | awk '{print $1}')"

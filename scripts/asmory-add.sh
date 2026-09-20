@@ -123,7 +123,7 @@ if [[ -e ".asmory/deps/$package" || -L ".asmory/deps/$package" ]]; then
   exit 15
 fi
 
-for ignored in 'deps/' '.staging/' '.restore/' '.delta/' '.vendor/' 'workspace.lock'; do
+for ignored in 'deps/' '.staging/' '.restore/' '.delta/' '.vendor/' '.fork/' '.publish/' 'workspace.lock'; do
   grep -qxF "$ignored" .asmory/.gitignore 2>/dev/null ||
     printf '%s\n' "$ignored" >> .asmory/.gitignore
 done
