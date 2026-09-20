@@ -28,7 +28,7 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
@@ -104,7 +104,7 @@ install-user: $(CLI_BIN)
 
 dev: clean all check smoke cli-smoke
 
-check: all contract-check semantic-check
+check: all contract-check semantic-check workspace-smoke
 	@echo '== registry binary =='
 	@file $(REGISTRY_BIN)
 	@echo 'bytes:'
@@ -124,6 +124,9 @@ smoke: $(REGISTRY_BIN)
 
 cli-smoke: $(CLI_BIN)
 	./scripts/cli-smoke.sh
+
+workspace-smoke: $(CLI_BIN)
+	./scripts/workspace-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

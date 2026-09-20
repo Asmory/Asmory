@@ -198,29 +198,32 @@ be controlled.
 
 Materialization does not imply ownership.
 
-A resolved dependency begins Clean:
+The normative integrity states are **Exact** and **Modified**.
+
+A resolved dependency begins Exact:
 
 ```text
 source = registry
 artifact = sha256:...
-dirty = false
+integrity = Exact
 ```
 
-If the local tree changes, Asmory transitions it to Dirty:
+If the project-local tree changes, Asmory computes it as Modified:
 
 ```text
 source = local-derivative
 base_artifact = sha256:...
 tree_hash = sha256:...
-dirty = true
+integrity = Modified
 ```
 
-The resolver must treat these states differently during update and publication.
+Integrity state is computed from content; it is not a mutable flag that local
+metadata may simply claim.
 
-A normal `asmory update` may replace a Clean dependency after updating the
+A normal `asmory update` may replace an Exact dependency after updating the
 lockfile.
 
-It must not silently replace a Dirty dependency.
+It must not silently replace a Modified dependency.
 
 ## Leaf-first default
 

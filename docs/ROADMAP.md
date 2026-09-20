@@ -31,10 +31,24 @@
 - [x] `asmory audit` Artifact/Review/Advisory separation
 - [x] Registry Release JSON -> generated Assembly metadata bridge
 - [ ] remote registry client
-- [ ] `asmory init`
+- [x] `asmory init`
 - [ ] `asmory add`
 - [x] bootstrap target/Variant compatibility resolution
-- [ ] lockfile
+- [x] project workspace + empty lockfile v1 foundation
+- [ ] resolved dependency records in lockfile
+
+## M2.75 — Local workspace foundation
+
+- [x] native syscall-only `asmory init`
+- [x] `asm.toml` user-intent manifest
+- [x] generated `asm.lock` exact-resolution foundation
+- [x] `.asmory/deps/` local-visible materialization root
+- [x] non-overwriting / partial-state initialization rules
+- [x] Exact / Modified terminology in dependency UX
+- [ ] Artifact acquisition
+- [ ] content-addressed global cache
+- [ ] local materialization
+- [ ] computed Exact / Modified status
 
 ## M3 — Real index/storage
 

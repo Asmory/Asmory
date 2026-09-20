@@ -417,8 +417,8 @@ but materialized into the project by default so humans and AI agents can inspect
 modify, test and benchmark the actual Assembly instead of treating dependencies
 as opaque remote blobs.
 
-Local dependencies have two explicit states: **Clean** dependencies are
-reconstructible from the lockfile and normally stay out of Git; **Dirty**
+Local dependencies have two explicit integrity states: **Exact** dependencies are
+reconstructible from the lockfile and normally stay out of Git; **Modified**
 dependencies must be captured as vendored source, deterministic patches, a fork,
 or restored before release. Asmory v1 is also **leaf-first**: direct
 machine-level dependencies are preferred over arbitrary recursive dependency
