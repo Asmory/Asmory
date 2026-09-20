@@ -20,6 +20,8 @@ provider = "Asmory/Asmory"
 variant = "x86_64-avx2-generic"
 artifact_kind = "source"
 artifact_sha256 = "<sha256>"
+tree_hash_schema = "asmory-tree-v1"
+materialized_tree_sha256 = "<sha256>"
 review_state = "unreviewed"
 registry_safety = "normal"
 materialized_path = ".asmory/deps/simd-dot"
@@ -28,8 +30,9 @@ materialized_path = ".asmory/deps/simd-dot"
 The lockfile intentionally does not contain `exact = true` or
 `modified = false`; those values would become stale immediately after an edit.
 
-The lockfile stores the immutable base identity required to recompute local
-integrity.
+Instead it stores both the immutable Artifact identity and a deterministic
+fingerprint of the canonical project-local materialization. `asmory status`
+re-hashes the current tree and compares it to that baseline.
 
 For `asmory add simd-dot`, the manifest records broad intent:
 

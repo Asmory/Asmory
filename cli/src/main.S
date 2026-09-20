@@ -3,6 +3,8 @@ cmd_init:       .asciz "init"
 cmd_acquire:    .asciz "acquire"
 cmd_cache:      .asciz "cache"
 cmd_add:        .asciz "add"
+cmd_status:     .asciz "status"
+cmd_restore:    .asciz "restore"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -22,7 +24,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -40,6 +42,12 @@ add_backend_msg:    .asciz "asmory add: bootstrap installer backend unavailable\
 add_incompat_msg:   .asciz "asmory add: no compatible resolved Variant for this host\n"
 add_shell_cmd:      .asciz "exec asmory-add \"$@\""
 add_argv0:          .asciz "asmory-add"
+status_backend_msg: .asciz "asmory status: bootstrap state backend unavailable\n"
+restore_backend_msg:.asciz "asmory restore: bootstrap state backend unavailable\n"
+missing_restore_msg:.asciz "asmory restore: package name required\n"
+status_shell_cmd:   .asciz "exec asmory-state status \"$@\""
+restore_shell_cmd:  .asciz "exec asmory-state restore \"$@\""
+state_argv0:        .asciz "asmory-state"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -95,6 +103,7 @@ init_ignore_body:
 .ascii "# Exact dependency materializations are reconstructed from asm.lock.\n"
 .ascii "deps/\n"
 .ascii ".staging/\n"
+.ascii ".restore/\n"
 .ascii "workspace.lock\n"
 init_ignore_body_end:
 
@@ -245,6 +254,18 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_add
+
+    mov %r13, %rdi
+    lea cmd_status(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_status
+
+    mov %r13, %rdi
+    lea cmd_restore(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_restore
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -630,6 +651,65 @@ _start:
     lea add_incompat_msg(%rip), %rdi
     call print_cstr
     mov $4, %edi
+    jmp exit_process
+
+.do_status:
+    lea acquire_exec_argv(%rip), %r10
+
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea status_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea state_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    movq $0, 32(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea status_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.do_restore:
+    cmp $3, %r12
+    jb .missing_restore
+
+    lea acquire_exec_argv(%rip), %r10
+
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea restore_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea state_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea restore_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_restore:
+    lea missing_restore_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
     jmp exit_process
 
 .do_search:

@@ -68,4 +68,4 @@ The workspace foundation creates this directory. `asmory add` fills it only afte
 - is idempotent when both files already exist;
 - refuses a partial state where only one of those files exists.
 
-Acquisition, content-addressed cache, and safe materialization are separate implemented stages. Integrity-state computation remains a later stage.
+Acquisition, content-addressed cache, safe materialization, and computed local integrity are separate implemented stages. `asmory status` is local-only and `asmory restore` reconstructs the exact locked dependency.

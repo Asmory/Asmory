@@ -55,6 +55,7 @@ permission bits and group/world writes are removed.
 
 ## Relationship to integrity state
 
-Materialization does not store a mutable `Exact = true` flag. The lockfile
-records the immutable base Artifact identity. A later status milestone computes
-Exact/Modified from actual local content.
+Materialization does not store a mutable `Exact = true` flag. `asmory add`
+records a deterministic `asmory-tree-v1` baseline derived from the safely
+materialized locked Artifact. `asmory status` recomputes the current tree and
+therefore reports Exact/Modified from actual local content.

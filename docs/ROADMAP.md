@@ -56,7 +56,12 @@
 - [x] archive traversal/link/special-file rejection
 - [x] transactional first dependency manifest + lockfile update
 - [x] offline add from verified cache
-- [ ] computed Exact / Modified status
+- [x] computed Exact / Modified status
+- [x] deterministic materialized-tree fingerprint v1
+- [x] local-only `asmory status`
+- [x] Missing operational state
+- [x] `asmory restore` exact locked-Artifact recovery
+- [x] restore rollback / corrupt-cache preservation tests
 
 ## M3 — Real index/storage
 

@@ -33,5 +33,5 @@ This is the first executable form of:
 
 > **Cache for reuse. Local workspace for understanding and evolution.**
 
-The next milestone computes Exact versus Modified from the materialized tree and
-adds restore as the first state transition.
+The local-state lifecycle now computes Exact versus Modified from the materialized
+tree and implements restore as the first explicit state transition.

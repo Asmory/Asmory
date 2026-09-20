@@ -248,6 +248,29 @@ lockfile.
 
 It must not silently replace a Modified dependency.
 
+## Executable local state lifecycle
+
+Local edits are first-class state:
+
+```text
+asmory add
+    -> Exact
+edit local source
+    -> Modified
+asmory restore
+    -> Exact
+```
+
+`asmory status` computes integrity from the current materialized tree and the
+lockfile baseline. It performs no Registry access.
+
+`asmory restore <package>` is deliberately destructive to local edits, but it
+restores the exact locked Artifact rather than re-running current dependency
+resolution.
+
+A missing local tree is reported as `Missing` and can also be restored from the
+locked Artifact.
+
 ## Leaf-first default
 
 Asmory v1 should default to direct, leaf dependencies.

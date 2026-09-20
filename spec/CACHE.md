@@ -69,4 +69,4 @@ the source is materialized in .asmory/deps
 
 This stage stores exact archive bytes only.
 
-Archive validation, path/symlink safety, extraction and local working copies are implemented by materialization. Exact/Modified tree-state computation remains separate.
+Archive validation, path/symlink safety, extraction and local working copies are implemented by materialization. `asmory status` computes local Exact/Modified state independently from cache presence.

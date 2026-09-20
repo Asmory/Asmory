@@ -41,7 +41,7 @@ for value in "$capability" "$profile" "$provider" "$variant" "$review_state" "$s
   }
 done
 
-for cmd in asmory-cache asmory-materialize flock; do
+for cmd in asmory-cache asmory-materialize asmory-state flock; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "add: required bootstrap helper unavailable: $cmd" >&2
     exit 10
@@ -123,7 +123,7 @@ if [[ -e ".asmory/deps/$package" || -L ".asmory/deps/$package" ]]; then
   exit 15
 fi
 
-for ignored in 'deps/' '.staging/' 'workspace.lock'; do
+for ignored in 'deps/' '.staging/' '.restore/' 'workspace.lock'; do
   grep -qxF "$ignored" .asmory/.gitignore 2>/dev/null ||
     printf '%s\n' "$ignored" >> .asmory/.gitignore
 done
@@ -140,6 +140,12 @@ asmory-materialize \
   "$cache_object" \
   ".asmory/deps" >/dev/null
 published_dep=1
+
+tree_sha="$(asmory-state tree-hash ".asmory/deps/$package")"
+[[ "$tree_sha" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "add: failed to compute deterministic materialized tree hash" >&2
+  exit 18
+}
 
 cat >"$tmp_manifest" <<EOF
 # Asmory project manifest.
@@ -171,6 +177,8 @@ provider = "$provider"
 variant = "$variant"
 artifact_kind = "source"
 artifact_sha256 = "$artifact_sha"
+tree_hash_schema = "asmory-tree-v1"
+materialized_tree_sha256 = "$tree_sha"
 review_state = "$review_state"
 registry_safety = "$safety_state"
 materialized_path = ".asmory/deps/$package"

@@ -100,6 +100,8 @@ grep -q '^profile = "asmory/simd-dot-core@1.0.0"$' asm.lock
 grep -q '^provider = "Asmory/Asmory"$' asm.lock
 grep -q '^variant = "x86_64-avx2-generic"$' asm.lock
 grep -q "^artifact_sha256 = \"$expected\"$" asm.lock
+grep -q '^tree_hash_schema = "asmory-tree-v1"$' asm.lock
+grep -Eq '^materialized_tree_sha256 = "[0-9a-f]{64}"$' asm.lock
 grep -q '^review_state = "unreviewed"$' asm.lock
 grep -q '^registry_safety = "normal"$' asm.lock
 
@@ -107,6 +109,10 @@ grep -q '^registry_safety = "normal"$' asm.lock
 [[ -f .asmory/deps/simd-dot/semantics.toml ]]
 [[ -f "$object" ]]
 [[ "$(sha256sum "$object" | awk '{print $1}')" == "$expected" ]]
+
+locked_tree="$(grep '^materialized_tree_sha256 = ' asm.lock | cut -d'"' -f2)"
+actual_tree="$("$ROOT/build/asmory-state" tree-hash .asmory/deps/simd-dot)"
+[[ "$locked_tree" == "$actual_tree" ]]
 
 if find .asmory/deps/simd-dot -type l | grep -q .; then
   echo "materialized dependency unexpectedly contains symlinks" >&2
