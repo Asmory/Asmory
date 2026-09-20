@@ -1,7 +1,7 @@
 # Asmory language policy
 #
-# Count all real project languages honestly: Assembly, CSS, HTML, JavaScript,
-# Makefile, and maintained Shell tooling.
+# Count project implementation languages while excluding maintained Shell
+# tooling from GitHub Linguist language statistics.
 #
 # Only make Assembly classification explicit for source suffixes that may vary
 # between assemblers/toolchains.
@@ -9,3 +9,6 @@
 *.S linguist-language=Assembly
 *.s linguist-language=Assembly
 *.asm linguist-language=Assembly
+
+# Infrastructure / workflow Shell scripts are not part of language stats.
+*.sh linguist-detectable=false
