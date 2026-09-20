@@ -170,3 +170,21 @@ footer{margin-top:100px;padding-top:28px;border-top:1px solid var(--line);displa
     color:#eef2f6;
   }
 }
+
+/* ASMORY_WHY_V1 */
+.why{padding-top:96px}
+.why-lead{font-size:20px!important;max-width:850px!important}
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:32px}
+.why-card{padding:24px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--panel),var(--panel2));box-shadow:0 10px 30px var(--shadow)}
+.why-card h3{font-size:18px;margin:24px 0 8px}
+.why-card p{color:var(--muted);margin:0}
+.why-num{font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);letter-spacing:.12em}
+.why-thesis{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px;padding:28px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+.why-thesis h3{font-size:28px;line-height:1.08;letter-spacing:-.035em;margin:8px 0 12px}
+.why-thesis p{color:var(--muted);margin:0}
+.why-label{font:700 11px ui-monospace,SFMono-Regular,Consolas,monospace;text-transform:uppercase;letter-spacing:.15em;color:var(--accent)}
+.why-thesis pre{margin:0;background:var(--terminal);color:#eef2f6;border:1px solid #303842;border-radius:14px;padding:22px;overflow:auto;font:13px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace}
+.manifesto{margin:22px 0 0;padding:28px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--panel) 86%,transparent);border-radius:0 14px 14px 0}
+.manifesto strong{display:block;font-size:22px;letter-spacing:-.025em}
+.manifesto span{display:block;color:var(--muted);margin-top:5px}
+@media(max-width:800px){.why-grid,.why-thesis{grid-template-columns:1fr}}

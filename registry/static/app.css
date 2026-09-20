@@ -449,3 +449,12 @@ button,input,select{font:inherit}
     color:#dce3ec;
   }
 }
+
+/* ASMORY_WHY_V1 */
+.why-now{padding-top:78px}
+.registry-manifesto{
+  margin-top:20px;padding:22px 24px;border-left:3px solid var(--accent);
+  background:var(--panel-2);border-radius:0 12px 12px 0
+}
+.registry-manifesto strong{display:block;font-size:19px;letter-spacing:-.02em}
+.registry-manifesto span{display:block;color:var(--muted);margin-top:4px}

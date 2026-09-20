@@ -2,6 +2,40 @@
 <header class="topbar"><div class="shell nav"><a class="brand" href="/"><span class="brandmark">A</span><span>Asmory</span></a><nav class="navlinks"><a href="/packages">Packages</a><a href="/design">Design</a><a href="/api/v1/packages">API</a></nav><a class="navcta" href="/package/simd-dot">simd-dot →</a></div></header>
 <main><section class="shell hero"><div><span class="eyebrow"><span class="dot"></span> Assembly-native package registry</span><h1>Package the <em>instruction layer.</em></h1><p class="lede">Asmory 让汇编代码像 crate / Python package 一样发布、搜索、依赖和复用，但把 ISA、ABI、对象格式与微架构兼容性放在解析器的第一层，而不是当作 README 备注。</p><div class="actions"><a class="btn primary" href="/packages">Explore packages</a><a class="btn" href="/design">Read the design</a></div></div><div class="terminal"><div class="termbar"><i></i><i></i><i></i><span class="termtitle">asmory resolve</span></div><div class="termcode"><div><span class="prompt">$</span> asmory add simd-dot</div><br><div><span class="dim">resolve</span> <span class="key">simd-dot@0.1.0</span></div><div><span class="dim">host</span> x86_64-linux / sysv64</div><div><span class="dim">detect</span> avx2 fma bmi1 bmi2</div><div><span class="dim">select</span> <span class="value">x86-64-v3 + avx2 + fma</span></div><div><span class="dim">object</span> elf64 / gas ≥ 2.40</div><div><span class="dim">link</span> --gc-sections</div><br><div class="ok">✓ compatible variant selected</div><div class="ok">✓ dead sections discarded</div></div></div></section>
 <section class="shell stats"><div class="stat"><strong>3</strong><span>prototype packages</span></div><div class="stat"><strong>3</strong><span>architectures / ISA families</span></div><div class="stat"><strong>ELF</strong><span>object-first distribution</span></div><div class="stat"><strong>0</strong><span>runtime framework dependencies</span></div></section>
+
+<section class="shell section why-now">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Why Asmory · Why now?</span>
+      <h2 style="margin-top:14px">AI changes the economics of low-level programming.</h2>
+      <p class="intro">Assembly used to trade maximum control for maximum human cost. AI lowers that cost, and Assembly gives an agent an unusually short path from generated code to measurable machine behavior.</p>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <article class="feature">
+      <span class="num">01 / DIRECT</span>
+      <h3>Concrete optimization targets</h3>
+      <p>Instructions, register pressure, dependency chains, SIMD width, memory access and cycles are directly visible to the tuning loop.</p>
+    </article>
+    <article class="feature">
+      <span class="num">02 / FAST LOOP</span>
+      <h3>Edit → assemble → benchmark</h3>
+      <p>For small kernels, fewer high-level compilation stages make aggressive AI iteration practical.</p>
+    </article>
+    <article class="feature">
+      <span class="num">03 / ECOSYSTEM</span>
+      <h3>Stop regenerating every kernel</h3>
+      <p>Give humans and agents a registry of reusable machine-level building blocks with explicit ISA and ABI contracts.</p>
+    </article>
+  </div>
+
+  <div class="registry-manifesto">
+    <strong>In the AI era, Assembly may finally deserve a modern package ecosystem.</strong>
+    <span>Asmory exists to find out how far that idea can go.</span>
+  </div>
+</section>
+
 <section class="shell section"><div class="section-head"><div><h2>Compatibility is a dependency.</h2><p class="intro">高级语言通常把 CPU 特性藏在编译器后面。Asmory 反过来：机器能力就是包解析的一部分。</p></div><a class="text-link" href="/design">Why this model →</a></div><div class="grid3"><article class="feature"><span class="num">01 / RESOLVE</span><h3>ISA-first resolution</h3><p>版本解析同时检查 architecture、ISA baseline、extensions、ABI、object format 与 assembler 能力。</p></article><article class="feature"><span class="num">02 / LINK</span><h3>Section-level dead code GC</h3><p>函数与常量按独立 section 组织，最终由 linker 依赖图和 <code>--gc-sections</code> 清除未使用机器码。</p></article><article class="feature"><span class="num">03 / CONTRACT</span><h3>Machine-readable ABI</h3><p>导出 symbol、calling convention、stack alignment、clobbers 等进入 manifest，让人和 LLM 都能可靠调用。</p></article></div></section>
 <section class="shell section"><div class="section-head"><div><h2>Packages worth stealing cycles from.</h2><p class="intro">第一批包用于验证不同架构、ISA Variant 与包页面的信息密度。</p></div><a class="text-link" href="/packages">All packages →</a></div><div class="pkg-grid"><a class="pkg-card" href="/package/simd-dot"><div class="pkg-top"><span class="pkg-name">simd-dot</span><span class="chip hot">AVX2</span></div><p class="pkg-desc">High-throughput float32 dot-product kernel with a strict SysV64 contract.</p><div class="chips"><span class="chip">FMA</span><span class="chip">x86-64-v3</span><span class="chip">ELF64</span></div><div class="pkg-foot"><span>0.1.0 · MIT</span><span>12.4k pulls</span></div></a><a class="pkg-card" href="/packages"><div class="pkg-top"><span class="pkg-name">memscan</span><span class="chip hot">SSE2</span></div><p class="pkg-desc">Byte scanning primitives for parsers, tokenizers and delimiter-heavy workloads.</p><div class="chips"><span class="chip">x86_64</span><span class="chip">SysV64</span><span class="chip">ELF64</span></div><div class="pkg-foot"><span>0.3.1 · Apache-2.0</span><span>8.1k pulls</span></div></a><a class="pkg-card" href="/packages"><div class="pkg-top"><span class="pkg-name">arm64-crc</span><span class="chip hot">ARMv8 CRC</span></div><p class="pkg-desc">CRC32 / CRC32C instruction paths with explicit AArch64 feature constraints.</p><div class="chips"><span class="chip">AArch64</span><span class="chip">AAPCS64</span><span class="chip">ELF64</span></div><div class="pkg-foot"><span>0.2.0 · MIT</span><span>5.7k pulls</span></div></a></div></section>
 <section class="band"><div class="shell band-inner"><div><span class="eyebrow">Manifest preview</span><h2 style="font-size:34px;letter-spacing:-.04em;margin:16px 0 12px">The package tells you what silicon it expects.</h2><p class="intro">Asmory 的 manifest 不会只写 <code>x86_64</code>。ISA 基线和扩展必须是精确约束。</p></div><div class="codebox"><button class="copy" data-copy="asmory add simd-dot@0.1.0">copy install</button><span class="key">[target]</span><br>arch = <span class="value">"x86_64"</span><br>abi = <span class="value">"sysv64"</span><br>object = <span class="value">"elf64"</span><br><br><span class="key">[target.isa]</span><br>baseline = <span class="value">"x86-64-v3"</span><br>required = [<span class="value">"avx2"</span>, <span class="value">"fma"</span>]</div></div></section></main>

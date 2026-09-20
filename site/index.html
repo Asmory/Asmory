@@ -18,6 +18,7 @@ try{
 <nav>
   <div class="brand">Asm<span>ory</span></div>
   <div class="navlinks">
+    <a class="chip hide" href="#why">Why</a>
     <a class="chip hide" href="#cli">CLI</a>
     <a class="chip hide" href="#model">Target model</a>
     <button class="theme-toggle" type="button" data-theme-toggle title="Toggle theme">
@@ -43,6 +44,54 @@ try{
   <div class="card"><h3>Variant-oriented</h3><p>One package version can carry several machine implementations and let the resolver choose legally.</p></div>
   <div class="card"><h3>Assembly-first</h3><p>The current registry and CLI are static x86-64 ELF programs built with GNU as + ld.</p></div>
 </div>
+
+
+<section class="section why" id="why">
+  <div class="kicker">Why Asmory · Why now?</div>
+  <h2>AI changes the economics of low-level programming.</h2>
+  <p class="why-lead">Assembly used to trade maximum control for maximum human cost. AI weakens that trade-off: coding models can generate and tune low-level kernels, while Assembly gives them a brutally short path from edit to benchmark.</p>
+
+  <div class="why-grid">
+    <article class="why-card">
+      <span class="why-num">01</span>
+      <h3>Concrete optimization targets</h3>
+      <p>Instructions, register pressure, dependency chains, memory access, SIMD width, branches and cycles are directly visible. The distance between generated code and measured hardware behavior is small.</p>
+    </article>
+
+    <article class="why-card">
+      <span class="why-num">02</span>
+      <h3>A tiny feedback loop</h3>
+      <p>For small kernels, the path can be as short as <code>edit → assemble → run → benchmark → inspect → repeat</code>. Fewer high-level compilation stages means more experiments per minute.</p>
+    </article>
+
+    <article class="why-card">
+      <span class="why-num">03</span>
+      <h3>Vibe coding meets machine code</h3>
+      <p>If developers already describe intent, let AI implement it, then validate the result, the old requirement to manually manage every Assembly detail becomes less absolute.</p>
+    </article>
+  </div>
+
+  <div class="why-thesis">
+    <div>
+      <span class="why-label">The missing layer</span>
+      <h3>Assembly still has no modern package ecosystem.</h3>
+      <p>Today, optimized kernels are often scattered across snippets, gists and larger projects. Asmory wants the same <strong>find → add → reuse</strong> workflow developers expect from Cargo, PyPI and npm - without hiding the machine contract.</p>
+    </div>
+    <pre><span class="gold">$</span> asmory add fast-memcpy
+<span class="gold">$</span> asmory add simd-json-scan
+<span class="gold">$</span> asmory add avx2-dot
+
+<span class="ok">resolve</span> ISA + ABI + object + OS
+<span class="ok">select</span> compatible Variant
+<span class="ok">link</span> only what survives</pre>
+  </div>
+
+  <blockquote class="manifesto">
+    <strong>In the AI era, Assembly may finally deserve a modern package ecosystem.</strong>
+    <span>Asmory exists to find out how far that idea can go.</span>
+  </blockquote>
+</section>
+
 
 <section class="section" id="cli">
   <div class="kicker">Working CLI</div>

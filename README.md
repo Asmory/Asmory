@@ -9,25 +9,226 @@
 [![Pages](https://github.com/Asmory/Asmory/actions/workflows/pages.yml/badge.svg)](https://github.com/Asmory/Asmory/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## The idea
+## Why Asmory?
 
-What if Assembly had package-manager ergonomics comparable to crates.io or
-PyPI without pretending machine differences do not exist?
+For decades, Assembly had an obvious trade-off:
 
-For Asmory, compatibility includes:
+**maximum control, maximum human cost.**
+
+You get direct control over instructions, registers, memory layout, calling
+conventions, SIMD, cache behavior and the exact machine code that runs - but
+traditionally you pay for that control with slower development, harder
+debugging and a much heavier maintenance burden.
+
+High-level languages won for good reasons: humans needed abstraction.
+
+**AI changes that equation.**
+
+Modern coding models can generate, rewrite and tune small low-level kernels
+surprisingly well. Assembly also gives an AI something unusually concrete to
+optimize:
+
+```text
+instructions
+register pressure
+dependency chains
+memory access
+SIMD width
+branch structure
+cache behavior
+cycles
+```
+
+There is very little distance between the generated code and the hardware
+behavior being measured.
+
+That makes the optimization loop unusually direct:
+
+```text
+idea
+  -> generate Assembly
+  -> assemble
+  -> run tests
+  -> benchmark
+  -> inspect instructions / counters
+  -> rewrite
+  -> benchmark again
+```
+
+### The build loop is tiny
+
+This matters a lot for AI-driven iteration.
+
+A high-level-language build can involve parsing, type checking, generic or
+template expansion, IR generation, optimization passes, machine-code
+generation, object generation and finally linking.
+
+Assembly starts much closer to the destination:
+
+```text
+Assembly source
+    -> assembler
+    -> object file
+    -> linker
+```
+
+The assembler and linker still do real work, of course. Assembly does not
+magically skip those stages. But for small kernels and machine-level packages,
+the edit -> assemble -> run -> benchmark loop can be extremely short.
+
+That is exactly the kind of feedback loop an automated coding agent can exploit.
+
+Instead of making one expensive attempt, an agent can iterate aggressively:
+
+```text
+edit
+-> assemble
+-> test
+-> benchmark
+-> inspect
+-> edit again
+```
+
+The faster the loop, the more experiments become practical.
+
+### Vibe coding makes the old trade-off look different
+
+There is another reason Assembly becomes interesting now.
+
+A lot of AI-assisted development already works like this:
+
+```text
+describe intent
+-> let the model implement it
+-> run the program
+-> inspect the result
+-> ask for another iteration
+```
+
+The developer is not necessarily reasoning about every generated line by hand.
+
+That is very close to the way low-level code can be developed with an AI agent:
+specify the contract, test the output, benchmark it, inspect the machine
+behavior, then iterate.
+
+If AI is carrying much of the implementation burden, one of the classic
+reasons for avoiding Assembly - that every low-level detail must be managed
+manually by a human - becomes less absolute.
+
+This does **not** mean high-level languages are obsolete.
+
+Rust, C++, C and other systems languages still provide enormously valuable
+features:
+
+- type systems;
+- memory safety;
+- portability;
+- mature ecosystems;
+- application frameworks;
+- complex abstractions;
+- developer tooling.
+
+Asmory is not trying to replace them.
+
+But when those abstractions are not the thing you need - when you simply want
+a small, reusable, aggressively optimized machine-level building block - the
+economics start to look different.
+
+### The missing piece is an ecosystem
+
+Today, Assembly is still often shared as:
+
+```text
+a code snippet
+a gist
+a random .S file
+a kernel buried inside a larger project
+```
+
+That makes reuse unnecessarily difficult.
+
+Asmory asks a simple question:
+
+> **What if Assembly had the same "find a package, add it, use it" workflow
+> that developers expect from Cargo, PyPI or npm?**
+
+Imagine:
+
+```bash
+asmory add fast-memcpy
+asmory add simd-json-scan
+asmory add avx2-dot
+asmory add sha256-x86
+```
+
+and let the package manager understand the machine contract:
 
 ```text
 architecture
-+ ISA baseline / version
-+ ISA extensions
-+ ABI / calling convention
-+ object format
-+ operating system
-+ assembler/linker constraints
-+ optional microarchitecture tuning
+ISA baseline
+ISA version
+ISA extensions
+ABI
+calling convention
+object format
+operating system
+assembler requirements
+microarchitecture tuning
 ```
 
-`x86_64` by itself is not a sufficient target description.
+A package can ship several machine Variants:
+
+```text
+fast-memcpy 1.4.0
+├── x86_64-sse2
+├── x86_64-avx2
+├── x86_64-avx512
+├── aarch64-neon
+└── aarch64-sve2
+```
+
+The resolver selects what the machine can legally execute.
+
+The linker discards what the program never uses.
+
+And an AI agent can operate one level higher:
+
+```text
+understand task
+  -> search Asmory
+  -> inspect machine contracts
+  -> select compatible packages
+  -> generate glue code
+  -> assemble
+  -> benchmark
+  -> tune or replace
+  -> repeat
+```
+
+Traditional package ecosystems primarily help **humans reuse abstractions**.
+
+Asmory can also help **AI reuse machine-level building blocks**.
+
+Instead of regenerating every memcpy loop, hash primitive, parser kernel, DSP
+routine or SIMD building block from scratch, an agent can search for existing
+implementations with explicit ISA and ABI contracts and compose them like
+libraries in higher-level languages.
+
+That is the idea behind Asmory.
+
+> **AI changes the economics of low-level programming.**
+
+If AI reduces the human cost of writing and tuning Assembly, and Assembly
+offers an exceptionally short build-test-benchmark loop, then one of its
+largest historical disadvantages starts to shrink.
+
+At that point, the absence of a modern package ecosystem starts looking
+strange.
+
+**In the AI era, Assembly may finally deserve one.**
+
+Asmory exists to find out how far that idea can go.
+
 
 ## Working today
 
