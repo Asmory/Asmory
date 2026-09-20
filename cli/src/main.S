@@ -1,6 +1,7 @@
 .section .rodata
 cmd_init:       .asciz "init"
 cmd_acquire:    .asciz "acquire"
+cmd_cache:      .asciz "cache"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -20,7 +21,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -28,6 +29,10 @@ missing_acquire_msg:.asciz "asmory acquire: package and output path required\n"
 acquire_workspace_msg:.asciz "asmory acquire: no initialized workspace; run 'asmory init' first\n"
 acquire_backend_msg:.asciz "asmory acquire: bootstrap transport backend unavailable\n"
 acquire_incompat_msg:.asciz "asmory acquire: no compatible resolved Variant for this host\n"
+missing_cache_msg:  .asciz "asmory cache: package name required\n"
+cache_backend_msg:  .asciz "asmory cache: bootstrap cache backend unavailable\n"
+cache_shell_cmd:    .asciz "exec asmory-cache \"$@\""
+cache_argv0:        .asciz "asmory-cache"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -219,6 +224,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_acquire
+
+    mov %r13, %rdi
+    lea cmd_cache(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_cache
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -471,6 +482,53 @@ _start:
     lea acquire_incompat_msg(%rip), %rdi
     call print_cstr
     mov $4, %edi
+    jmp exit_process
+
+.do_cache:
+    cmp $3, %r12
+    jb .missing_cache
+
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    # Cache is global infrastructure. It does not imply project ownership
+    # and therefore intentionally does not require asm.toml / asm.lock.
+    lea acquire_exec_argv(%rip), %r10
+
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea cache_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea cache_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    lea registry_pkg_name(%rip), %rax
+    mov %rax, 32(%r10)
+    lea registry_version(%rip), %rax
+    mov %rax, 40(%r10)
+    lea registry_artifact_sha256(%rip), %rax
+    mov %rax, 48(%r10)
+    movq $0, 56(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea cache_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_cache:
+    lea missing_cache_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
     jmp exit_process
 
 .do_search:

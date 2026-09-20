@@ -57,5 +57,5 @@ verified Artifact
 content-addressed immutable cache
 ```
 
-The acquisition destination in Draft 0.1 is explicit and caller-selected. It is
-not yet the global cache.
+The explicit acquisition destination remains caller-selected. A separate cache
+layer now consumes verified acquisition without changing acquisition semantics.

@@ -20,9 +20,10 @@ Assembly resolver
 
 A digest mismatch fails closed.
 
-The command intentionally stops before global cache, archive extraction,
-project-local materialization, Exact/Modified tree comparison, and lockfile
-dependency records.
+Acquisition itself still stops before cache policy and extraction. A separate
+`asmory cache` layer now consumes verified acquisition; project-local
+materialization, Exact/Modified tree comparison, and lockfile dependency records
+remain later milestones.
 
 > Resolution decides identity. Acquisition only transports bytes for that
 > identity.

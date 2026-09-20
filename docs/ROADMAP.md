@@ -48,7 +48,10 @@
 - [x] fail-closed digest verification + atomic no-clobber output
 - [x] Exact / Modified terminology in dependency UX
 - [x] Artifact acquisition + SHA-256 verification
-- [ ] content-addressed global cache
+- [x] SHA-256-only global object identity
+- [x] verified cache hits and corruption rejection
+- [x] atomic no-clobber cache publication
+- [x] content-addressed global cache
 - [ ] local materialization
 - [ ] computed Exact / Modified status
 
