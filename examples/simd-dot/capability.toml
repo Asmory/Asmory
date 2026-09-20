@@ -1,0 +1,11 @@
+schema = 1
+
+[capability]
+id = "math.dot.f32"
+name = "float32 dot product"
+kind = "discovery"
+authority = "none"
+description = "Compute a scalar dot product from two float32 sequences."
+
+[capability.discovery]
+keywords = ["dot-product", "f32", "vector", "simd"]

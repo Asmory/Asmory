@@ -1,94 +1,68 @@
-# Machine Variants — Draft 0
+# Implementations and Machine Variants — Draft 0.1
 
-Asmory separates three questions that must never be collapsed:
+Asmory does not require one publisher to support every machine.
 
-```text
-Can it run?
-    ↓
-Machine Contract
-
-What machine was it tuned for?
-    ↓
-Tuning Profile
-
-How did it actually perform?
-    ↓
-Performance Evidence
-```
-
-## Model
+## Community model
 
 ```text
-Project
-└── Release
-    ├── Variant
-    │   ├── Machine Contract
-    │   ├── Tuning Profile
-    │   ├── Artifact
-    │   └── Performance Evidence[]
-    └── Variant
-        └── ...
+Capability
+└── semantic shape
+    ├── Implementation by Provider A
+    │   ├── Variant A1
+    │   └── Variant A2
+    ├── Implementation by Provider B
+    │   └── Variant B1
+    └── Implementation by Provider C
+        └── Variant C1
 ```
 
-A Variant is not a Git branch. It is one machine implementation of the same
-semantic package Release.
+An Implementation is an independently maintained solution.
+
+A Machine Variant is a machine-specific realization of that implementation.
 
 ## Machine Contract
 
-Hard correctness requirements:
+Hard execution requirements include:
 
-```toml
-[variant.compatibility]
-arch = "x86_64"
-os = "linux"
-object = "elf64"
-abi = "sysv64"
-baseline = "x86-64-v3"
-required = ["avx2", "fma"]
+```text
+architecture
+OS
+object format
+ABI
+calling convention
+ISA baseline
+required ISA extensions
+toolchain constraints
 ```
 
-If the target does not satisfy these fields, the Variant must not execute.
+If the host does not satisfy them, the Variant must not execute.
 
 ## Tuning Profile
 
-Performance preference, not correctness:
-
-```toml
-[variant.tuning]
-microarch = ["zen4"]
-```
-
-A Zen 4 tuned Variant may still execute on another compatible x86-64 CPU.
-`tuning` must never silently become a hard ISA requirement.
-
-## Performance Evidence
-
-Evidence is attached to:
+Performance preference is separate:
 
 ```text
-Release
-+ Variant
-+ Artifact SHA-256
-+ Benchmark Contract
-+ Machine Profile
+microarchitecture
+unroll strategy
+instruction scheduling
+cache assumptions
 ```
 
-The same immutable Artifact can accumulate Evidence from many CPUs over time.
+`tuned_for = zen4` must never silently mean `requires = zen4`.
 
-## Resolver order
+## Semantic boundary
 
-```text
-version resolution
-      ↓
-Machine Contract filtering
-      ↓
-compatible Variants
-      ↓
-Tuning Profile preference
-      ↓
-comparable Performance Evidence
-      ↓
-selected Variant
-```
+Changing machine realization while preserving declared semantics creates a
+Machine Variant.
 
-Correctness always wins over performance preference.
+Changing observable semantics changes the semantic candidate itself.
+
+The resolver may still group both under one Capability, but it must not silently
+treat them as interchangeable.
+
+## Provider independence
+
+Different providers may maintain compatible implementations.
+
+The resolver is allowed to select across providers only when semantic, machine
+and trust policies all permit it.

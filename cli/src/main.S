@@ -4,19 +4,24 @@ cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
 cmd_help:       .asciz "help"
 cmd_version:    .asciz "version"
+cmd_versions:   .asciz "versions"
 cmd_vflag:      .asciz "--version"
 cmd_hflag:      .asciz "--help"
 pkg_simd_dot:   .asciz "simd-dot"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
+missing_versions_msg: .asciz "asmory versions: package name required\n"
 not_found_msg: .asciz "asmory: package not found in bootstrap index\n"
 
 search_msg:
 .asciz "bootstrap index\n\nNAME       VERSION  TARGET                         DESCRIPTION\nsimd-dot   0.1.0    x86_64 / AVX2 + FMA / SysV64  AVX2/FMA f32 dot product\n"
+
+versions_msg:
+.asciz "simd-dot releases\n\nVERSION  PUBLISHED   VARIANTS  STATUS\n0.1.0    2026-09-20  1         active\n"
 
 info_msg:
 .asciz "simd-dot 0.1.0\n\nPackage\n  license      MIT\n  status       example\n\nTarget\n  arch         x86_64\n  os           linux\n  object       elf64\n  abi          sysv64\n  baseline     x86-64-v3\n  requires     avx2, fma\n\nToolchain\n  assembler    gas >= 2.40\n\nExports\n  simd_dot_f32\n"
@@ -72,6 +77,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_target
+
+    mov %r13, %rdi
+    lea cmd_versions(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_versions
 
     mov %r13, %rdi
     lea cmd_info(%rip), %rsi
@@ -130,6 +141,24 @@ _start:
     lea search_msg(%rip), %rdi
     call print_cstr
     xor %edi, %edi
+    jmp exit_process
+
+.do_versions:
+    cmp $3, %r12
+    jb .missing_versions
+    mov 24(%rsp), %rdi
+    lea pkg_simd_dot(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+    lea versions_msg(%rip), %rdi
+    call print_cstr
+    xor %edi, %edi
+    jmp exit_process
+.missing_versions:
+    lea missing_versions_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
     jmp exit_process
 
 .do_info:

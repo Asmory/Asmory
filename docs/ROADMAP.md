@@ -34,11 +34,15 @@
 
 ## M3 — Real index/storage
 
-- [ ] package index binary format or compact JSON schema
-- [ ] package/version/Variant records
-- [ ] content-addressed source archives
-- [ ] checksums and package immutability
-- [ ] publisher namespace model
+- [x] Draft 1 JSON Project/Release/Variant/Artifact schema
+- [x] Project/Release/Variant/Artifact records
+- [x] SHA-256 integrity metadata for source archives
+- [x] checksum + immutable Release semantics specified
+- [x] normalized global Project names + owner/maintainer model specified
+
+- [ ] real persistent storage backend
+- [ ] authenticated publish/write API
+- [ ] server-side search index
 
 ## M4 — Build/link pipeline
 

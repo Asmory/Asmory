@@ -1,0 +1,34 @@
+schema = 1
+
+[contract]
+id = "asmory/simd-dot-core"
+version = "1.0.0"
+capability = "math.dot.f32"
+provider = "Asmory/Asmory"
+status = "experimental"
+
+[contract.interface]
+logical_export = "dot_f32"
+signature = "fn(*const f32, *const f32, usize) -> f32"
+input_a = "read-only"
+input_b = "read-only"
+alignment = "arbitrary"
+
+[contract.semantics]
+operation = "sum(a[i] * b[i]) for i in 0..n"
+zero_length_result = "+0.0"
+out_of_bounds_access = "forbidden"
+
+[contract.numeric]
+mode = "tolerance"
+absolute_error = 0.000001
+relative_error = 0.00001
+bit_exact_required = false
+
+[contract.lineage]
+derived_from = []
+supersedes = []
+
+[contract.conformance]
+suite = "core-v1-basic"
+path = "conformance/basic.S"

@@ -9,6 +9,7 @@ BIN="${1:-./build/asmory}"
 "$BIN" target | grep -q 'baseline     x86-64-v'
 "$BIN" search simd | grep -q 'simd-dot'
 "$BIN" info simd-dot | grep -q '^simd-dot 0.1.0'
+"$BIN" versions simd-dot | grep -q '^simd-dot releases'
 
 if "$BIN" info definitely-not-a-package >/dev/null 2>&1; then
   echo 'expected unknown package lookup to fail' >&2

@@ -230,6 +230,31 @@ strange.
 Asmory exists to find out how far that idea can go.
 
 
+## Registry positioning
+
+Asmory is **not** trying to be GitHub for Assembly.
+
+Use GitHub, GitLab, Forgejo or another forge for source history, branches,
+pull requests and collaboration.
+
+Asmory is the package-distribution layer, closer in role to crates.io or PyPI:
+
+```text
+source repository
+      -> publish
+Asmory Project
+      -> Release
+      -> Variant
+      -> Artifact
+resolver / build / linker
+```
+
+The important unit is an immutable, versioned package Release with
+machine-readable compatibility metadata and content-verified Artifacts.
+
+See [spec/REGISTRY_MODEL.md](spec/REGISTRY_MODEL.md) and
+[docs/PUBLISHING.md](docs/PUBLISHING.md).
+
 ## Working today
 
 The repository already contains two static Linux x86-64 ELF programs written
@@ -358,6 +383,58 @@ normal linker mechanisms such as `--gc-sections` can eliminate unused code.
 The goal is not to rebuild a high-level language around Assembly. The goal is
 to make low-level code reusable by giving humans and coding agents a precise,
 machine-readable interface and target contract.
+
+<!-- ASMORY_SEMANTIC_MODEL_BEGIN -->
+## Semantic compatibility model
+
+Asmory deliberately avoids treating a named standard as permanent authority.
+
+```text
+Capability
+    -> Semantic Facets
+    -> optional Profile / Contract
+    -> Implementation
+    -> Machine Variant
+    -> Evidence
+```
+
+**Semantic Facets are the source of truth.** A Profile / Contract is only an
+immutable, reusable name for a common Facet bundle — closer to a `typedef` than
+a constitution.
+
+This lets the community reuse compatible implementations without forcing future
+work to obey an old design forever.
+
+> **Contracts define compatibility islands, not the boundaries of innovation.**
+
+The resolver first checks semantic and machine compatibility, then trust, and
+only then uses comparable Performance Evidence to rank surviving Variants.
+
+See [`docs/DESIGN_PHILOSOPHY.md`](docs/DESIGN_PHILOSOPHY.md).
+
+Asmory is also **local-first**: resolved packages are cached globally for reuse
+but materialized into the project by default so humans and AI agents can inspect,
+modify, test and benchmark the actual Assembly instead of treating dependencies
+as opaque remote blobs.
+
+Local dependencies have two explicit states: **Clean** dependencies are
+reconstructible from the lockfile and normally stay out of Git; **Dirty**
+dependencies must be captured as vendored source, deterministic patches, a fork,
+or restored before release. Asmory v1 is also **leaf-first**: direct
+machine-level dependencies are preferred over arbitrary recursive dependency
+graphs.
+
+Security findings should also be easy to report: reports bind to exact Artifact
+or Delta identities, confirmed Advisories propagate independently of lockfiles,
+and AI-assisted review can prefill evidence without turning an AI judgment into
+an automatic verdict.
+
+Artifact integrity and security are separate: an **Exact** Artifact only proves
+that the bytes match the published identity. It may still be unreviewed or
+dangerous. Asmory uses Reviewed Anchors plus deterministic Delta review to make
+AI-assisted incremental security review efficient without treating a clean
+baseline as automatically safe.
+<!-- ASMORY_SEMANTIC_MODEL_END -->
 
 ## Repository
 

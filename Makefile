@@ -12,13 +12,16 @@ EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
 VARIANT_BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/compare_variants.o
 VARIANT_BENCH_BIN := $(BUILD)/benchmarks/simd-dot-variants
+CONFORMANCE_OBJ := $(BUILD)/conformance/simd-dot/basic.o
+CONFORMANCE_GENERIC := $(BUILD)/conformance/simd-dot/generic
+CONFORMANCE_4ACC := $(BUILD)/conformance/simd-dot/4acc
 BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/bench.o
 BENCH_BIN := $(BUILD)/benchmarks/simd-dot-bench
 PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
 RELEASE_JSON := $(BUILD)/registry-data/simd-dot-0.1.0.json
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data run check smoke cli-smoke dev clean install-user perf-build perf perf-variants
+.PHONY: all registry cli examples packages registry-data run check smoke cli-smoke dev clean install-user perf-build perf perf-variants contract-check conformance-build conformance
 
 all: registry cli examples
 
@@ -28,7 +31,7 @@ examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON)
 
-$(BUILD)/registry $(BUILD)/cli $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance:
+$(BUILD)/registry $(BUILD)/cli $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance $(BUILD)/conformance/simd-dot:
 	mkdir -p $@
 
 $(PACKAGE_ARCHIVE): examples/simd-dot/asm.toml examples/simd-dot/src/dot.S | $(BUILD)/packages
@@ -73,7 +76,7 @@ install-user: $(CLI_BIN)
 
 dev: clean all check smoke cli-smoke
 
-check: all
+check: all contract-check
 	@echo '== registry binary =='
 	@file $(REGISTRY_BIN)
 	@echo 'bytes:'
@@ -108,3 +111,20 @@ $(VARIANT_BENCH_BIN): $(VARIANT_BENCH_OBJ) $(EXAMPLE_OBJ) $(TUNED_OBJ)
 
 perf-variants: $(VARIANT_BENCH_BIN)
 	./scripts/bench-simd-dot-variants.sh
+
+$(CONFORMANCE_OBJ): examples/simd-dot/conformance/basic.S | $(BUILD)/conformance/simd-dot
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(CONFORMANCE_GENERIC): $(CONFORMANCE_OBJ) $(EXAMPLE_OBJ)
+	$(LD) $(LDFLAGS) --defsym=asmory_contract_target=simd_dot_f32 $^ -o $@
+
+$(CONFORMANCE_4ACC): $(CONFORMANCE_OBJ) $(TUNED_OBJ)
+	$(LD) $(LDFLAGS) --defsym=asmory_contract_target=simd_dot_f32_4acc $^ -o $@
+
+contract-check:
+	./scripts/check-contract-model.sh
+
+conformance-build: $(CONFORMANCE_GENERIC) $(CONFORMANCE_4ACC)
+
+conformance: conformance-build
+	./scripts/conformance-simd-dot.sh

@@ -458,3 +458,23 @@ button,input,select{font:inherit}
 }
 .registry-manifesto strong{display:block;font-size:19px;letter-spacing:-.02em}
 .registry-manifesto span{display:block;color:var(--muted);margin-top:4px}
+
+/* ASMORY_REGISTRY_V1 */
+.project-title-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.release-badge{border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);padding:4px 8px;border-radius:999px;font:11px var(--mono)}
+.package-tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);overflow:auto}
+.package-tabs a{padding:14px 0;color:var(--muted);font:12px var(--mono);white-space:nowrap}
+.package-tabs a.active,.package-tabs a:hover{color:var(--accent);border-bottom:2px solid var(--accent)}
+.registry-note{margin:26px 0;padding:18px 20px;border:1px solid var(--accent-line);border-radius:11px;background:var(--accent-soft)}
+.registry-note strong{color:var(--accent)}.registry-note p{margin:5px 0 0}
+.release-table{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.release-head,.release-row{display:grid;grid-template-columns:1fr 1.2fr .8fr .8fr;gap:12px;padding:11px 14px}
+.release-head{background:var(--panel-3);color:var(--muted);font:11px var(--mono);text-transform:uppercase}
+.release-row{border-top:1px solid var(--line);font:12px var(--mono)}.release-row a{color:var(--accent);font-weight:700}
+.empty-deps{border:1px dashed var(--line-strong);border-radius:10px;padding:18px;color:var(--muted)}
+.api-links{display:flex;gap:9px;flex-wrap:wrap}.api-links a,.side-link{display:block;color:var(--accent);font:12px var(--mono)}
+.api-links a{border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:7px 9px}
+.owner-pill{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:9px}.owner-avatar{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent);font-weight:800}.owner-pill small{color:var(--muted)}
+.publish-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.publish-step{border:1px solid var(--line);background:var(--panel-2);border-radius:12px;padding:22px}.publish-step>span{color:var(--accent);font:11px var(--mono)}.publish-step h2{font-size:19px;margin:14px 0 7px}.publish-step p{color:var(--muted);margin:0}
+.result-version{font-size:11px;color:var(--accent);font-weight:500}
+@media(max-width:700px){.publish-grid{grid-template-columns:1fr}.release-head,.release-row{min-width:620px}.release-table{overflow:auto}}

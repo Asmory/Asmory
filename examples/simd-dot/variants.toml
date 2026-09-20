@@ -1,5 +1,9 @@
 [[variant]]
 id = "x86_64-avx2-generic"
+conformance_suite = "core-v1-basic"
+contract = "asmory/simd-dot-core@1.0.0"
+capability = "math.dot.f32"
+provider = "Asmory/Asmory"
 
 [variant.compatibility]
 arch = "x86_64"
@@ -34,6 +38,10 @@ contract = "performance.toml"
 
 [[variant]]
 id = "x86_64-avx2-fma-4acc"
+conformance_suite = "core-v1-basic"
+contract = "asmory/simd-dot-core@1.0.0"
+capability = "math.dot.f32"
+provider = "Asmory/Asmory"
 
 [variant.compatibility]
 arch = "x86_64"

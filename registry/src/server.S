@@ -62,6 +62,9 @@ asset_pkg_end:
 asset_design:
     .incbin "registry/static/design.html"
 asset_design_end:
+asset_publishing:
+    .incbin "registry/static/publishing.html"
+asset_publishing_end:
 asset_css:
     .incbin "registry/static/app.css"
 asset_css_end:
@@ -74,6 +77,12 @@ asset_packages_json_end:
 asset_pkg_json:
     .incbin "registry/data/simd-dot.json"
 asset_pkg_json_end:
+asset_versions_json:
+    .incbin "registry/data/simd-dot-versions.json"
+asset_versions_json_end:
+asset_release_json:
+    .incbin "build/registry-data/simd-dot-0.1.0.json"
+asset_release_json_end:
 asset_download:
     .incbin "build/packages/simd-dot-0.1.0.tar.gz"
 asset_download_end:
@@ -81,6 +90,14 @@ not_found_html:
     .ascii "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>404 · Asmory</title><style>body{margin:0;background:#090b0f;color:#d9dfe7;font:16px ui-monospace,monospace;display:grid;place-items:center;min-height:100vh}main{border:1px solid #29303a;border-radius:12px;padding:28px 32px;background:#0e1218}b,a{color:#f2b84b}</style></head><body><main><b>404</b> · symbol not found<br><br><a href='/'>return to Asmory</a></main></body></html>"
 not_found_html_end:
 
+pat_release_download: .ascii "GET /api/v1/packages/simd-dot/0.1.0/download "
+pat_release_download_end:
+pat_release_api: .ascii "GET /api/v1/packages/simd-dot/0.1.0 "
+pat_release_api_end:
+pat_versions_api: .ascii "GET /api/v1/packages/simd-dot/versions "
+pat_versions_api_end:
+pat_project_api: .ascii "GET /api/v1/packages/simd-dot "
+pat_project_api_end:
 pat_pkg_api:  .ascii "GET /api/v1/package/simd-dot "
 pat_pkg_api_end:
 pat_api:      .ascii "GET /api/v1/packages "
@@ -97,6 +114,8 @@ pat_packages: .ascii "GET /packages "
 pat_packages_end:
 pat_design:   .ascii "GET /design "
 pat_design_end:
+pat_publishing: .ascii "GET /publishing "
+pat_publishing_end:
 pat_home:     .ascii "GET / "
 pat_home_end:
 
@@ -210,6 +229,34 @@ accept_loop:
     jle close_client
 
     lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_release_download]
+    mov rcx, pat_release_download_end - pat_release_download
+    call prefix_eq
+    test eax, eax
+    jnz route_release_download
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_release_api]
+    mov rcx, pat_release_api_end - pat_release_api
+    call prefix_eq
+    test eax, eax
+    jnz route_release_api
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_versions_api]
+    mov rcx, pat_versions_api_end - pat_versions_api
+    call prefix_eq
+    test eax, eax
+    jnz route_versions_api
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_project_api]
+    mov rcx, pat_project_api_end - pat_project_api
+    call prefix_eq
+    test eax, eax
+    jnz route_pkg_api
+
+    lea rsi, [rip + request_buf]
     lea rdi, [rip + pat_pkg_api]
     mov rcx, pat_pkg_api_end - pat_pkg_api
     call prefix_eq
@@ -259,6 +306,13 @@ accept_loop:
     jnz route_packages
 
     lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_publishing]
+    mov rcx, pat_publishing_end - pat_publishing
+    call prefix_eq
+    test eax, eax
+    jnz route_publishing
+
+    lea rsi, [rip + request_buf]
     lea rdi, [rip + pat_design]
     mov rcx, pat_design_end - pat_design
     call prefix_eq
@@ -301,6 +355,15 @@ route_pkg:
     call send_response
     jmp close_client
 
+route_publishing:
+    mov rdi, r13
+    lea rsi, [rip + hdr_html]
+    mov rdx, hdr_html_end - hdr_html
+    lea rcx, [rip + asset_publishing]
+    mov r8, asset_publishing_end - asset_publishing
+    call send_response
+    jmp close_client
+
 route_design:
     mov rdi, r13
     lea rsi, [rip + hdr_html]
@@ -337,12 +400,39 @@ route_api:
     call send_response
     jmp close_client
 
+route_versions_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_versions_json]
+    mov r8, asset_versions_json_end - asset_versions_json
+    call send_response
+    jmp close_client
+
+route_release_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_release_json]
+    mov r8, asset_release_json_end - asset_release_json
+    call send_response
+    jmp close_client
+
 route_pkg_api:
     mov rdi, r13
     lea rsi, [rip + hdr_json]
     mov rdx, hdr_json_end - hdr_json
     lea rcx, [rip + asset_pkg_json]
     mov r8, asset_pkg_json_end - asset_pkg_json
+    call send_response
+    jmp close_client
+
+route_release_download:
+    mov rdi, r13
+    lea rsi, [rip + hdr_gzip]
+    mov rdx, hdr_gzip_end - hdr_gzip
+    lea rcx, [rip + asset_download]
+    mov r8, asset_download_end - asset_download
     call send_response
     jmp close_client
 

@@ -1,22 +1,47 @@
-# Registry Protocol — Draft 0
+# Registry Protocol — Draft 1
 
-The current Assembly HTTP server exposes only a demonstration API. It is not yet the stable protocol.
+## Read API implemented by the Assembly MVP
 
-Current MVP endpoint:
-
-```text
+```http
 GET /api/v1/packages
+GET /api/v1/packages/{name}
+GET /api/v1/packages/{name}/versions
+GET /api/v1/packages/{name}/{version}
+GET /api/v1/packages/{name}/{version}/download
 ```
 
-A future protocol needs at minimum:
+Current example:
 
-- package search;
-- package/version metadata;
-- variant target constraints;
-- dependency metadata;
-- immutable source archive download;
-- checksums;
-- publication/ownership operations;
-- yanking/deprecation without mutating historical artifacts.
+```text
+/api/v1/packages
+/api/v1/packages/simd-dot
+/api/v1/packages/simd-dot/versions
+/api/v1/packages/simd-dot/0.1.0
+/api/v1/packages/simd-dot/0.1.0/download
+```
 
-Protocol design should follow the target/ISA specification rather than collapsing ISA requirements into textual labels.
+Release metadata includes dependencies, machine Variants and artifact SHA-256.
+
+The old MVP endpoints remain temporary compatibility aliases:
+
+```text
+/api/v1/package/simd-dot
+/download/simd-dot-0.1.0.tar.gz
+```
+
+## Planned write API
+
+Write operations require authentication and are not implemented yet.
+
+Conceptual publish transaction:
+
+1. authenticate publisher;
+2. normalize project identity;
+3. verify ownership;
+4. validate manifest/archive;
+5. compute and verify digests;
+6. reject an already-used project/version/artifact identity;
+7. atomically expose metadata and artifact.
+
+The server stores machine constraints exactly. The client resolver decides
+whether a Variant is compatible.
