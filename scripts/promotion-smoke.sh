@@ -199,7 +199,14 @@ assert project["owner"] == "alice"
 assert project["versions"] == ["0.1.0"]
 status,body=get("/api/v1/packages/my-dot/versions")
 assert status == 200, (status,body)
-assert json.loads(body)["versions"] == ["0.1.0"]
+versions=json.loads(body)["versions"]
+assert len(versions) == 1
+summary=versions[0]
+assert summary["version"] == "0.1.0"
+assert summary["state"] == "active"
+assert summary["variants"] == 1
+assert summary["artifact_sha256"] == artifact_sha
+assert summary["endpoint"] == "/api/v1/packages/my-dot/0.1.0"
 status,body=get("/api/v1/packages/my-dot/0.1.0")
 assert status == 200, (status,body)
 release=json.loads(body)

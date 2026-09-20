@@ -13,6 +13,7 @@ cmd_fork:       .asciz "fork"
 cmd_publish_prepare:.asciz "publish-prepare"
 cmd_publish:     .asciz "publish"
 cmd_promote:     .asciz "promote"
+cmd_remote:      .asciz "remote"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -32,7 +33,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory remote <search|info|versions|resolve|add> [package]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -358,6 +359,12 @@ _start:
     jnz .do_promote
 
     mov %r13, %rdi
+    lea cmd_remote(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_remote
+
+    mov %r13, %rdi
     lea cmd_target(%rip), %rsi
     call streq
     test %eax, %eax
@@ -555,7 +562,7 @@ _start:
     lea registry_pkg_name(%rip), %rsi
     call streq
     test %eax, %eax
-    jz .pkg_not_found
+    jz .do_add_remote
 
     call check_bootstrap_variant
     test %eax, %eax
@@ -675,7 +682,7 @@ _start:
     lea registry_pkg_name(%rip), %rsi
     call streq
     test %eax, %eax
-    jz .pkg_not_found
+    jz .do_add_remote
 
     call check_bootstrap_variant
     test %eax, %eax
@@ -1092,7 +1099,131 @@ _start:
     mov $2, %edi
     jmp exit_process
 
+
+.do_remote:
+    cmp $3, %r12
+    jb .remote_usage
+    cmp $5, %r12
+    jae .remote_usage
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+
+    cmp $4, %r12
+    jb .remote_no_arg
+    mov 32(%rsp), %rax
+    mov %rax, 40(%r10)
+    movq $0, 48(%r10)
+    jmp .remote_exec
+
+.remote_no_arg:
+    movq $0, 40(%r10)
+
+.remote_exec:
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea remote_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.remote_usage:
+    lea remote_usage_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_search_remote:
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_search_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .remote_exec
+
+.do_info_remote:
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_info_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .remote_exec
+
+.do_versions_remote:
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_versions_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .remote_exec
+
+.do_resolve_remote:
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_resolve_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .remote_exec
+
+.do_add_remote:
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea remote_add_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea remote_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .remote_exec
+
 .do_search:
+    cmp $3, %r12
+    jae .do_search_remote
     lea search_msg(%rip), %rdi
     call print_cstr
     xor %edi, %edi
@@ -1105,7 +1236,7 @@ _start:
     lea pkg_simd_dot(%rip), %rsi
     call streq
     test %eax, %eax
-    jz .pkg_not_found
+    jz .do_versions_remote
     lea versions_msg(%rip), %rdi
     call print_cstr
     xor %edi, %edi
@@ -1123,7 +1254,7 @@ _start:
     lea pkg_simd_dot(%rip), %rsi
     call streq
     test %eax, %eax
-    jz .pkg_not_found
+    jz .do_info_remote
     lea info_msg(%rip), %rdi
     call print_cstr
     xor %edi, %edi
@@ -1146,7 +1277,7 @@ _start:
     lea registry_pkg_name(%rip), %rsi
     call streq
     test %eax, %eax
-    jz .pkg_not_found
+    jz .do_resolve_remote
 
     call check_bootstrap_variant
     test %eax, %eax
@@ -1917,3 +2048,26 @@ exit_process:
     mov $60, %eax
     syscall
 .size _start, .-_start
+
+# Remote Registry client literals.
+# Kept in an explicit rodata section so CLI handler references resolve
+# independently of nearby publication-label layout.
+.section .rodata
+remote_backend_msg:
+    .asciz "asmory remote: remote Registry client unavailable\n"
+remote_usage_msg:
+    .asciz "asmory remote: usage: asmory remote <search|info|versions|resolve|add> [package]\n"
+remote_shell_cmd:
+    .asciz "exec asmory-remote \"$@\""
+remote_search_shell_cmd:
+    .asciz "exec asmory-remote search \"$@\""
+remote_info_shell_cmd:
+    .asciz "exec asmory-remote info \"$@\""
+remote_versions_shell_cmd:
+    .asciz "exec asmory-remote versions \"$@\""
+remote_resolve_shell_cmd:
+    .asciz "exec asmory-remote resolve \"$@\""
+remote_add_shell_cmd:
+    .asciz "exec asmory-remote add \"$@\""
+remote_argv0:
+    .asciz "asmory-remote"

@@ -30,7 +30,7 @@
 - [x] `asmory explain` resolution trace
 - [x] `asmory audit` Artifact/Review/Advisory separation
 - [x] Registry Release JSON -> generated Assembly metadata bridge
-- [ ] remote registry client
+- [x] remote active Registry client
 - [x] `asmory init`
 - [x] `asmory add` first leaf dependency MVP
 - [x] bootstrap target/Variant compatibility resolution
@@ -97,7 +97,7 @@
 - [x] bearer-token authenticated candidate/Artifact write API
 - [x] immutable + idempotent staged Package/version records
 - [x] active Release promotion/index backend
-- [ ] server-side search index
+- [x] persistent server-side active Package search index
 
 ## M2.5 — Semantic Type System MVP
 

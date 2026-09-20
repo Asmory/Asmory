@@ -325,6 +325,8 @@ asmory fork simd-dot my-dot
 asmory publish-prepare my-dot
 asmory publish my-dot
 asmory promote my-dot
+asmory remote search dot
+asmory remote resolve my-dot
 asmory --version
 ```
 
@@ -383,6 +385,27 @@ Promotion does not execute package code and does not turn an unreviewed Artifact
 into a reviewed one.
 
 See [`spec/PROMOTION_GATE.md`](spec/PROMOTION_GATE.md).
+
+## Remote active Registry consumption
+
+Promoted Packages are now discoverable and consumable without rebuilding the
+bootstrap CLI.
+
+```bash
+ASMORY_REGISTRY_URL=https://registry.example asmory search dot
+ASMORY_REGISTRY_URL=https://registry.example asmory info my-dot
+ASMORY_REGISTRY_URL=https://registry.example asmory resolve my-dot
+ASMORY_REGISTRY_URL=https://registry.example asmory add my-dot
+```
+
+The Registry search index contains only active Releases. Staged-only candidates
+remain invisible to normal consumers.
+
+The remote resolver performs hard Machine Contract checks before feeding the
+selected exact Artifact into the existing verified cache/materialization
+pipeline.
+
+See [`spec/REMOTE_REGISTRY_CLIENT.md`](spec/REMOTE_REGISTRY_CLIENT.md).
 
 ## Package model
 

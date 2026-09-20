@@ -17,6 +17,7 @@ export PATH="$BIN_DIR:$PATH"
 "$BIN" --help | grep -q 'asmory publish-prepare <package>'
 "$BIN" --help | grep -q 'asmory publish <package>'
 "$BIN" --help | grep -q 'asmory promote <package>'
+"$BIN" --help | grep -q 'asmory remote <search|info|versions|resolve|add> \[package\]'
 workspace="$("$BIN" workspace)"
 grep -q '^Asmory repository workspace' <<<"$workspace"
 grep -q '^simd-dot 0.1.0$' <<<"$workspace"

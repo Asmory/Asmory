@@ -16,7 +16,7 @@ import sys
 import tarfile
 import tempfile
 import tomllib
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9._-]*")
 VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z.-]+)?")
@@ -148,18 +148,26 @@ class RegistryState:
 
         self.objects = data_dir / "objects" / "sha256"
         self.projects = data_dir / "projects"
-        self.active = data_dir / "active" / "projects"
+        self.active_root = data_dir / "active"
+        self.active = self.active_root / "projects"
+        self.active_index_path = self.active_root / "index.json"
         self.locks = data_dir / "locks"
         self.incoming = data_dir / "incoming"
 
         for path in (
             self.objects,
             self.projects,
+            self.active_root,
             self.active,
             self.locks,
             self.incoming,
         ):
             path.mkdir(parents=True, exist_ok=True)
+
+        # The active index is derived entirely from immutable active Release
+        # records. Rebuild on startup so restart/crash recovery cannot leave
+        # a stale resolver/search view.
+        self.rebuild_active_index()
 
     def auth_owner(self, header: str | None) -> str:
         if not header or not header.startswith("Bearer "):
@@ -211,6 +219,12 @@ class RegistryState:
         fcntl.flock(file.fileno(), fcntl.LOCK_EX)
         return file
 
+    def active_index_lock(self):
+        path = self.locks / "_active-index.lock"
+        file = path.open("a+b")
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+        return file
+
     def object_path(self, digest: str) -> Path:
         return self.objects / digest
 
@@ -234,6 +248,198 @@ class RegistryState:
                 if VERSION_RE.fullmatch(version):
                     versions.append(version)
         return sorted(versions)
+
+    def load_active_release(self, package: str, version: str) -> dict:
+        path = self.active_release_path(package, version)
+        if not path.is_file() or path.is_symlink():
+            raise RegistryError(404, "active Release not found")
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RegistryError(
+                500,
+                f"active Release record invalid: {exc}",
+            ) from exc
+
+        if (
+            record.get("project") != package
+            or record.get("resolvable") is not True
+            or not isinstance(record.get("release"), dict)
+            or record["release"].get("version") != version
+            or record["release"].get("state") != "active"
+        ):
+            raise RegistryError(500, "active Release record identity is invalid")
+
+        return record
+
+    @staticmethod
+    def version_key(version: str):
+        m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(.*)", version)
+        if m is None:
+            return (0, 0, 0, 0, version)
+        suffix = m.group(4)
+        return (
+            int(m.group(1)),
+            int(m.group(2)),
+            int(m.group(3)),
+            1 if suffix == "" else 0,
+            suffix,
+        )
+
+    def active_versions_sorted(self, package: str) -> list[str]:
+        return sorted(
+            self.active_versions(package),
+            key=self.version_key,
+            reverse=True,
+        )
+
+    def active_version_summaries(self, package: str) -> list[dict]:
+        result = []
+        for version in self.active_versions_sorted(package):
+            record = self.load_active_release(package, version)
+            release = record["release"]
+            variants = release.get("variants", [])
+            artifacts = release.get("artifacts", [])
+            artifact = artifacts[0] if artifacts else {}
+
+            variant_count = len(variants) if isinstance(variants, list) else 0
+            result.append(
+                {
+                    "version": version,
+                    "published_at": release.get("published_at"),
+                    "yanked": False,
+                    "yank_reason": None,
+                    "downloads": 0,
+                    "variants": variant_count,
+                    "endpoint": f"/api/v1/packages/{package}/{version}",
+                    "state": release.get("state", "active"),
+                    "artifact_sha256": artifact.get("sha256"),
+                    "semantic_fingerprint": release.get("semantic_fingerprint"),
+                    "capability": release.get("capability"),
+                    "profile": release.get("profile"),
+                }
+            )
+        return result
+
+    def active_project_summary(self, package: str) -> dict:
+        versions = self.active_versions_sorted(package)
+        if not versions:
+            raise RegistryError(404, "active Package not found")
+
+        latest = self.load_active_release(package, versions[0])
+        release = latest["release"]
+        variants = release.get("variants", [])
+        first_variant = variants[0] if isinstance(variants, list) and variants else {}
+        target = first_variant.get("target", {}) if isinstance(first_variant, dict) else {}
+        isa = target.get("isa", {}) if isinstance(target, dict) else {}
+
+        return {
+            "name": package,
+            "owner": latest.get("owner"),
+            "latest_version": versions[0],
+            "release_count": len(versions),
+            "capability": release.get("capability"),
+            "profile": release.get("profile"),
+            "semantic_fingerprint": release.get("semantic_fingerprint"),
+            "arch": target.get("arch"),
+            "abi": target.get("abi"),
+            "baseline": isa.get("baseline"),
+            "review": release.get("review", {}).get("state"),
+            "safety": release.get("safety", {}).get("state"),
+        }
+
+    def build_active_index_document(self) -> dict:
+        packages = []
+        for entry in sorted(self.active.iterdir(), key=lambda p: p.name):
+            if not entry.is_dir() or entry.is_symlink():
+                continue
+            package = entry.name
+            if NAME_RE.fullmatch(package) is None:
+                continue
+            try:
+                packages.append(self.active_project_summary(package))
+            except RegistryError as exc:
+                if exc.status == 404:
+                    continue
+                raise
+
+        return {
+            "registry": "Asmory",
+            "schema": 1,
+            "kind": "asmory-active-index",
+            "packages": packages,
+        }
+
+    def rebuild_active_index(self) -> dict:
+        with self.active_index_lock():
+            document = self.build_active_index_document()
+            atomic_write(
+                self.active_index_path,
+                canonical_json(document),
+                0o444,
+            )
+            return document
+
+    def load_active_index(self) -> dict:
+        if not self.active_index_path.is_file() or self.active_index_path.is_symlink():
+            return self.rebuild_active_index()
+
+        try:
+            data = json.loads(self.active_index_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return self.rebuild_active_index()
+
+        if (
+            data.get("registry") != "Asmory"
+            or data.get("schema") != 1
+            or data.get("kind") != "asmory-active-index"
+            or not isinstance(data.get("packages"), list)
+        ):
+            return self.rebuild_active_index()
+
+        return data
+
+    def search_active_packages(
+        self,
+        query: str | None,
+        capability: str | None,
+        arch: str | None,
+        limit: int,
+    ) -> list[dict]:
+        q = (query or "").casefold()
+        index = self.load_active_index()
+        results = []
+
+        for summary in index["packages"]:
+            if not isinstance(summary, dict):
+                continue
+
+            if capability and summary.get("capability") != capability:
+                continue
+            if arch and summary.get("arch") != arch:
+                continue
+
+            if q:
+                haystack = " ".join(
+                    str(summary.get(key) or "")
+                    for key in (
+                        "name",
+                        "owner",
+                        "capability",
+                        "profile",
+                        "arch",
+                        "abi",
+                        "baseline",
+                    )
+                ).casefold()
+                if q not in haystack:
+                    continue
+
+            results.append(summary)
+            if len(results) >= limit:
+                break
+
+        return results
 
     def validate_candidate(self, raw: bytes) -> dict:
         if len(raw) > MAX_CANDIDATE:
@@ -857,7 +1063,7 @@ class Handler(BaseHTTPRequestHandler):
         )
         if versions_match:
             package = versions_match.group(1)
-            versions = self.state.active_versions(package)
+            versions = self.state.active_version_summaries(package)
             if not versions:
                 raise RegistryError(404, "active Package not found")
             self.send_json(
@@ -881,40 +1087,24 @@ class Handler(BaseHTTPRequestHandler):
             return False
 
         package, version, download = m.groups()
-        if download and version is None:
-            raise RegistryError(404, "active Release download requires a version")
-        versions = self.state.active_versions(package)
+        versions = self.state.active_versions_sorted(package)
 
         if version is None:
             if not versions:
                 raise RegistryError(404, "active Package not found")
-            owner = self.state.read_owner(package)
+            summary = self.state.active_project_summary(package)
+            summary["versions"] = versions
             self.send_json(
                 200,
                 {
                     "registry": "Asmory",
                     "schema": 1,
-                    "project": {
-                        "name": package,
-                        "owner": owner,
-                        "status": "active",
-                        "versions": versions,
-                    },
+                    "project": summary,
                 },
             )
             return True
 
-        release_path = self.state.active_release_path(package, version)
-        if not release_path.is_file():
-            raise RegistryError(404, "active Release not found")
-
-        try:
-            record = json.loads(release_path.read_text())
-        except (OSError, json.JSONDecodeError) as exc:
-            raise RegistryError(
-                500,
-                f"active Release record invalid: {exc}",
-            ) from exc
+        record = self.state.load_active_release(package, version)
 
         if download:
             artifact = record["release"]["artifacts"][0]
@@ -934,6 +1124,53 @@ class Handler(BaseHTTPRequestHandler):
                         "status": "ok",
                         "service": "asmory-registry-write",
                         "promotion": True,
+                        "active_index": True,
+                    },
+                )
+                return
+
+            if path == "/api/v1/packages":
+                parsed = urlsplit(self.path)
+                params = parse_qs(parsed.query, keep_blank_values=False)
+
+                def one(name: str) -> str | None:
+                    values = params.get(name)
+                    if not values:
+                        return None
+                    if len(values) != 1:
+                        raise RegistryError(400, f"duplicate query parameter: {name}")
+                    return values[0]
+
+                q = one("q")
+                capability = one("capability")
+                arch = one("arch")
+                raw_limit = one("limit") or "50"
+
+                if not raw_limit.isdigit():
+                    raise RegistryError(400, "limit must be an integer")
+                limit = int(raw_limit)
+                if not 1 <= limit <= 100:
+                    raise RegistryError(400, "limit must be in [1, 100]")
+
+                packages = self.state.search_active_packages(
+                    q,
+                    capability,
+                    arch,
+                    limit,
+                )
+                self.send_json(
+                    200,
+                    {
+                        "registry": "Asmory",
+                        "schema": 1,
+                        "query": {
+                            "q": q,
+                            "capability": capability,
+                            "arch": arch,
+                            "limit": limit,
+                        },
+                        "count": len(packages),
+                        "packages": packages,
                     },
                 )
                 return
@@ -1206,6 +1443,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 record = self.state.derive_active_release(staged, owner)
                 atomic_write(active_path, canonical_json(record), 0o444)
+                self.state.rebuild_active_index()
                 state = "promoted"
                 status = 201
 

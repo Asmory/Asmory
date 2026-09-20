@@ -119,6 +119,18 @@ review. Those states remain separate.
 Active records are immutable by `(Project, version)` and public through the
 normal `/api/v1/packages/...` read namespace.
 
+## Active search index
+
+The server maintains a deterministic `active/index.json` derived only from
+immutable active Release records.
+
+Staged candidates are never indexed.
+
+The index is rebuilt after promotion and again on service startup, so it is
+recoverable derived state rather than resolver authority.
+
+Search supports Package text plus exact Capability and architecture filters.
+
 ## Immutability
 
 A previously published `(project, version, artifact filename)` may not be
