@@ -48,6 +48,18 @@
 - [ ] authenticated publish/write API
 - [ ] server-side search index
 
+## M3.5 — Evidence loop
+
+- [x] Performance Evidence API for exact Release Artifacts
+- [x] Artifact + Performance Contract digest binding
+- [x] alternating AB/BA Variant benchmark protocol
+- [x] local Evidence validation
+- [x] machine-readable optimization report
+- [x] CLI `asmory evidence`
+- [ ] append-only remote Evidence submission
+- [ ] hardware cohort indexing
+- [ ] accepted Evidence driven Variant ranking
+
 ## M4 — Build/link pipeline
 
 - [ ] GAS/NASM/LLVM-MC adapters

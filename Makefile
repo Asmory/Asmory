@@ -20,10 +20,11 @@ BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/bench.o
 BENCH_BIN := $(BUILD)/benchmarks/simd-dot-bench
 PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
 RELEASE_JSON := $(BUILD)/registry-data/simd-dot-0.1.0.json
+EVIDENCE_JSON := $(BUILD)/registry-data/simd-dot-evidence.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data run check smoke cli-smoke dev clean install-user perf-build perf perf-variants contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index run check smoke cli-smoke dev clean install-user perf-build perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
@@ -31,7 +32,8 @@ registry: $(REGISTRY_BIN)
 cli: $(CLI_BIN)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
-registry-data: $(RELEASE_JSON)
+registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON)
+evidence-index: $(EVIDENCE_JSON)
 
 $(BUILD)/registry $(BUILD)/cli $(BUILD)/generated $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance $(BUILD)/conformance/simd-dot:
 	mkdir -p $@
@@ -42,15 +44,18 @@ $(PACKAGE_ARCHIVE): $(SIMD_DOT_PACKAGE_INPUTS) | $(BUILD)/packages
 $(RELEASE_JSON): registry/data/simd-dot-release-0.1.0.json.in $(PACKAGE_ARCHIVE) scripts/render-release-json.sh | $(BUILD)/registry-data
 	./scripts/render-release-json.sh $(PACKAGE_ARCHIVE) registry/data/simd-dot-release-0.1.0.json.in $@
 
+$(EVIDENCE_JSON): $(PACKAGE_ARCHIVE) examples/simd-dot/performance.toml scripts/render-evidence-index.sh | $(BUILD)/registry-data
+	./scripts/render-evidence-index.sh $(PACKAGE_ARCHIVE) examples/simd-dot/performance.toml $@
 
-$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JSON) | $(BUILD)/registry
+
+$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JSON) $(EVIDENCE_JSON) | $(BUILD)/registry
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(REGISTRY_BIN): $(REGISTRY_OBJ)
 	$(LD) $(LDFLAGS) $< -o $@
 
-$(CLI_REGISTRY_INC): $(RELEASE_JSON) scripts/render-cli-registry-inc.sh | $(BUILD)/generated
-	./scripts/render-cli-registry-inc.sh $(RELEASE_JSON) $@
+$(CLI_REGISTRY_INC): $(RELEASE_JSON) $(EVIDENCE_JSON) scripts/render-cli-registry-inc.sh | $(BUILD)/generated
+	./scripts/render-cli-registry-inc.sh $(RELEASE_JSON) $(EVIDENCE_JSON) $@
 
 $(CLI_OBJ): cli/src/main.S $(CLI_REGISTRY_INC) | $(BUILD)/cli
 	$(AS) $(ASFLAGS) -I. $< -o $@
@@ -114,8 +119,12 @@ $(VARIANT_BENCH_OBJ): examples/simd-dot/bench/compare_variants.S | $(BUILD)/benc
 $(VARIANT_BENCH_BIN): $(VARIANT_BENCH_OBJ) $(EXAMPLE_OBJ) $(TUNED_OBJ)
 	$(LD) $(LDFLAGS) $^ -o $@
 
-perf-variants: $(VARIANT_BENCH_BIN)
+perf-variants: $(VARIANT_BENCH_BIN) $(PACKAGE_ARCHIVE)
 	./scripts/bench-simd-dot-variants.sh
+	./scripts/validate-performance-evidence.sh
+
+optimize-simd-dot: conformance perf-variants
+	./scripts/build-optimization-report.sh
 
 $(CONFORMANCE_OBJ): examples/simd-dot/conformance/basic.S | $(BUILD)/conformance/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@

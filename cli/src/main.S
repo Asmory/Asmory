@@ -8,6 +8,7 @@ cmd_versions:   .asciz "versions"
 cmd_resolve:    .asciz "resolve"
 cmd_explain:    .asciz "explain"
 cmd_audit:      .asciz "audit"
+cmd_evidence:   .asciz "evidence"
 cmd_vflag:      .asciz "--version"
 cmd_hflag:      .asciz "--help"
 pkg_simd_dot:   .asciz "simd-dot"
@@ -15,7 +16,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -25,6 +26,7 @@ not_found_msg: .asciz "asmory: package not found in bootstrap index\n"
 missing_resolve_msg: .asciz "asmory resolve: package name required\n"
 missing_explain_msg: .asciz "asmory explain: package name required\n"
 missing_audit_msg:   .asciz "asmory audit: package name required\n"
+missing_evidence_msg:.asciz "asmory evidence: package name required\n"
 
 search_msg:
 .asciz "bootstrap index\n\nNAME       VERSION  TARGET                         DESCRIPTION\nsimd-dot   0.1.0    x86_64 / AVX2 + FMA / SysV64  AVX2/FMA f32 dot product\n"
@@ -38,6 +40,14 @@ info_msg:
 res_title:          .asciz "Resolved dependency\n\n"
 res_explain_title:  .asciz "Resolution explanation\n\n"
 res_audit_title:    .asciz "Artifact and review status\n\n"
+perf_title:         .asciz "Performance Evidence\n\n"
+perf_head:          .asciz "Performance\n"
+perf_lab_benchmark: .asciz "  benchmark    "
+perf_lab_contract:  .asciz "  contract sha "
+perf_lab_status:    .asciz "  status       "
+perf_lab_accepted:  .asciz "  accepted     "
+perf_lab_ranking:   .asciz "  ranking      "
+perf_lab_endpoint:  .asciz "  endpoint     "
 res_sem_head:       .asciz "Semantics\n"
 res_machine_head:   .asciz "\nMachine\n"
 res_select_head:    .asciz "\nSelection\n"
@@ -72,7 +82,7 @@ res_compatible:     .asciz "compatible"
 res_incompatible:   .asciz "incompatible"
 res_default_version:.asciz "default -> 0.1.0"
 res_not_evaluated:  .asciz "not evaluated"
-res_candidate_note: .asciz "  ranking      stable preferred; experimental retained\n"
+res_candidate_note: .asciz "  candidates   stable + experimental compatible set\n"
 res_final_none:     .asciz "  final        none\n"
 res_final_prefix:   .asciz "  final        "
 res_fail_msg:       .asciz "asmory resolve: no compatible Variant; host lacks AVX2/FMA required by simd-dot\n"
@@ -153,6 +163,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_audit
+
+    mov %r13, %rdi
+    lea cmd_evidence(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_evidence
 
     mov %r13, %rdi
     lea cmd_info(%rip), %rsi
@@ -384,6 +400,21 @@ _start:
     lea res_candidate_note(%rip), %rdi
     call print_cstr
 
+    lea perf_head(%rip), %rdi
+    call print_cstr
+    lea perf_lab_benchmark(%rip), %rdi
+    lea registry_perf_benchmark(%rip), %rsi
+    call print_kv
+    lea perf_lab_status(%rip), %rdi
+    lea registry_perf_evidence_status(%rip), %rsi
+    call print_kv
+    lea perf_lab_accepted(%rip), %rdi
+    lea registry_perf_evidence_count(%rip), %rsi
+    call print_kv
+    lea perf_lab_ranking(%rip), %rdi
+    lea registry_perf_ranking(%rip), %rsi
+    call print_kv
+
     lea res_machine_head(%rip), %rdi
     call print_cstr
     lea res_lab_requires(%rip), %rdi
@@ -417,6 +448,48 @@ _start:
 
 .missing_explain:
     lea missing_explain_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_evidence:
+    cmp $3, %r12
+    jb .missing_evidence
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    lea perf_title(%rip), %rdi
+    call print_cstr
+    lea perf_head(%rip), %rdi
+    call print_cstr
+
+    lea perf_lab_benchmark(%rip), %rdi
+    lea registry_perf_benchmark(%rip), %rsi
+    call print_kv
+    lea perf_lab_contract(%rip), %rdi
+    lea registry_perf_contract_sha256(%rip), %rsi
+    call print_kv
+    lea perf_lab_status(%rip), %rdi
+    lea registry_perf_evidence_status(%rip), %rsi
+    call print_kv
+    lea perf_lab_accepted(%rip), %rdi
+    lea registry_perf_evidence_count(%rip), %rsi
+    call print_kv
+    lea perf_lab_ranking(%rip), %rdi
+    lea registry_perf_ranking(%rip), %rsi
+    call print_kv
+    lea perf_lab_endpoint(%rip), %rdi
+    lea registry_perf_endpoint(%rip), %rsi
+    call print_kv
+
+    xor %edi, %edi
+    jmp exit_process
+
+.missing_evidence:
+    lea missing_evidence_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

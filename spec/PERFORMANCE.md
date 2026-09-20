@@ -1,111 +1,182 @@
-# Performance Contract — Draft 0
+# Performance Contract and Evidence — Draft 0.1
 
 Asmory is not only a place to publish Assembly.
 
-It is a place to make Assembly faster.
+It is a place to make Assembly faster **without turning benchmark anecdotes
+into resolver truth**.
 
-A performance-oriented Variant must provide reproducible evidence rather than
-an unsupported claim such as "2x faster".
+## Contract
 
-## Required contract fields
+A Performance Contract defines how a measurement is made:
 
 ```toml
-[performance]
-benchmark_id = "dot-f32-v1"
+benchmark_id = "simd-dot/dot-f32-v1"
 primary_metric = "ns_per_element"
 direction = "lower"
-baseline = "scalar"
 minimum_samples = 11
 regression_threshold_percent = 5.0
 ```
 
-A benchmark contract must also define:
+It also defines workload, timer, warmup, iteration count, affinity policy,
+machine metadata requirements and raw-sample retention.
 
-- workload;
-- timer;
-- warmup;
-- iterations;
-- thread/CPU-affinity policy;
-- required machine metadata;
-- raw-sample retention.
+The Contract itself is content-addressed. Evidence should record its exact
+digest.
 
-## Required evidence
+## Evidence binds to an exact Artifact
 
-At minimum:
+Every record must identify:
 
 ```text
-package
-release
-variant
-artifact SHA-256
-benchmark_id
-
-CPU model
-architecture
-kernel / OS
-affinity policy
-
-workload
-sample count
+Project
+Release
+Variant
+Artifact SHA-256
+Performance Contract ID + digest
+machine profile
+measurement protocol
 raw samples
-
-absolute primary metric
-baseline metric
-code size
 ```
 
-Optional but strongly encouraged:
+Performance numbers from an older Artifact are historical information.
+
+They are not evidence for a newer Artifact merely because the package name and
+version text look similar during development.
+
+## Local candidate vs accepted Registry evidence
+
+Running a benchmark creates a **local candidate Evidence record**.
 
 ```text
-cycles
-instructions
-IPC
-branches
-branch misses
-cache misses
-architecture-specific PMU events
+local benchmark
+    ↓
+candidate Evidence
+    ↓
+schema / Artifact / Contract validation
+    ↓
+optional submission
+    ↓
+Registry accepted Evidence
 ```
 
-## Hard rule
+A candidate is useful to humans and AI immediately.
 
-Asmory does **not** require a package to beat its baseline.
+It does not automatically change the global resolver.
 
-Asmory requires performance claims to be measurable and reproducible.
+## Append-only Evidence
 
-That prevents package authors from being forced to cherry-pick favorable
-machines or workloads just to publish.
+Performance Evidence is independent from immutable Release content.
+
+A Release does not need to be rewritten when another machine contributes a new
+valid measurement.
+
+Conceptually:
+
+```text
+immutable Release / Artifact
+        ↑
+        ├── Evidence from machine A
+        ├── Evidence from machine B
+        └── Evidence from machine C
+```
+
+Each Evidence record references the immutable Artifact digest.
 
 ## Comparability
 
-Two Evidence records are directly comparable only when their relevant cohort
-matches:
+Two records are directly comparable only when their relevant cohort matches:
 
 ```text
-benchmark contract/version
+Performance Contract + version/digest
 workload
-thread/affinity policy
 measurement protocol
+thread/affinity policy
 hardware profile class
 ```
 
-Different machines are valuable evidence, but they must not be ranked as if
-their raw absolute numbers came from the same environment.
+Different hardware remains valuable evidence, but raw values must not be placed
+on a naive universal leaderboard.
 
-## Regression detection
+## A/B order bias
 
-Within a comparable cohort:
+Variant comparisons should not always measure A before B.
+
+Asmory's example benchmark alternates:
 
 ```text
-previous median
-      ↓
-new median
-      ↓
-declared threshold
-      ↓
-regression / improvement / neutral
+AB
+BA
+AB
+BA
+...
 ```
 
-The first goal is not a global leaderboard.
+and retains the order in every raw sample.
 
-The first goal is making performance regressions and weak microarchitectures
-easy for the community to find.
+This does not eliminate all benchmark noise, but it makes a common ordering bias
+visible and easier to diagnose.
+
+## Resolver rule
+
+The resolver order is:
+
+```text
+semantic compatibility
+        ↓
+Machine Contract
+        ↓
+trust policy
+        ↓
+comparable accepted Performance Evidence
+        ↓
+selection
+```
+
+Performance can rank survivors.
+
+Performance can never make an incompatible or untrusted candidate legal.
+
+When no accepted comparable current-Artifact Evidence exists, Asmory should say
+so explicitly and use a declared fallback policy such as stable-Variant
+preference.
+
+## No forced winning
+
+Asmory does not require a package to beat its baseline.
+
+Asmory requires performance claims to be measurable, reproducible and properly
+scoped.
+
+A machine-local observation should be labeled as such:
+
+```text
+faster on this machine
+```
+
+not:
+
+```text
+globally faster
+```
+
+## Optimization loop
+
+The intended AI/human loop is:
+
+```text
+modify Variant
+    ↓
+Conformance
+    ↓
+benchmark
+    ↓
+validate Evidence
+    ↓
+inspect machine-local result
+    ↓
+collect broader comparable Evidence
+    ↓
+publish new Variant / ranking policy when justified
+```
+
+Evidence drives optimization; it does not redefine correctness.

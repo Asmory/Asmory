@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-input="${1:?release json required}"
-output="${2:?output include required}"
+release_input="${1:?release json required}"
+evidence_input="${2:?evidence json required}"
+output="${3:?output include required}"
 
-python3 - "$input" "$output" <<'PY'
+python3 - "$release_input" "$evidence_input" "$output" <<'PY'
 import json
 from pathlib import Path
 import sys
 
-src = Path(sys.argv[1])
-dst = Path(sys.argv[2])
+release_src = Path(sys.argv[1])
+evidence_src = Path(sys.argv[2])
+dst = Path(sys.argv[3])
 
-data = json.loads(src.read_text())
+data = json.loads(release_src.read_text())
+evidence = json.loads(evidence_src.read_text())
 r = data["release"]
 
 artifact = next(a for a in r["artifacts"] if a["kind"] == "source")
@@ -22,10 +25,21 @@ experimental = next(
     stable,
 )
 
+if evidence["artifact"]["sha256"] != artifact["sha256"]:
+    raise SystemExit("evidence index Artifact does not match Release Artifact")
+
 required = stable["target"]["isa"]["required"]
 review = r.get("review", {})
 safety = r.get("safety", {})
 advisories = safety.get("advisories", [])
+perf = r.get("performance", {})
+
+count = len(evidence.get("accepted_records", []))
+ranking = (
+    "comparable-evidence"
+    if count
+    else "stable fallback; no accepted comparable evidence"
+)
 
 fields = {
     "registry_pkg_name": data["project"],
@@ -45,6 +59,15 @@ fields = {
     "registry_reviewed_anchor": "yes" if review.get("reviewed_anchor") else "no",
     "registry_safety_state": safety.get("state", "unknown"),
     "registry_advisories": ", ".join(advisories) if advisories else "none known",
+    "registry_perf_benchmark": evidence["benchmark_contract"]["id"],
+    "registry_perf_contract_sha256": evidence["benchmark_contract"]["sha256"],
+    "registry_perf_evidence_status": evidence["status"],
+    "registry_perf_evidence_count": str(count),
+    "registry_perf_ranking": ranking,
+    "registry_perf_endpoint": perf.get(
+        "evidence_endpoint",
+        "/api/v1/packages/simd-dot/0.1.0/evidence",
+    ),
 }
 
 def gas_string(value: str) -> str:
@@ -55,7 +78,7 @@ def gas_string(value: str) -> str:
     )
 
 lines = [
-    "# Generated from the exact rendered Registry Release JSON.",
+    "# Generated from exact Registry Release + Evidence JSON.",
     "# Do not edit by hand.",
 ]
 for label, value in fields.items():
@@ -68,4 +91,5 @@ tmp.replace(dst)
 
 print("generated:", dst)
 print("artifact sha256:", fields["registry_artifact_sha256"])
+print("accepted evidence:", count)
 PY

@@ -18,6 +18,7 @@ grep -q '^Resolution explanation' <<<"$explain"
 grep -q 'source-preferred' <<<"$explain"
 grep -q 'leaf' <<<"$explain"
 grep -q 'x86_64-avx2-generic' <<<"$explain"
+grep -q 'stable fallback; no accepted comparable evidence' <<<"$explain"
 
 audit="$("$BIN" audit simd-dot)"
 grep -q '^Artifact and review status' <<<"$audit"
@@ -25,6 +26,13 @@ grep -q 'local integrity.*not evaluated' <<<"$audit"
 grep -q 'review.*unreviewed' <<<"$audit"
 grep -q 'advisories.*none known' <<<"$audit"
 grep -q 'Exact Artifact != Safe Artifact' <<<"$audit"
+
+evidence="$("$BIN" evidence simd-dot)"
+grep -q '^Performance Evidence' <<<"$evidence"
+grep -q 'simd-dot/dot-f32-v1' <<<"$evidence"
+grep -q 'accepted.*0' <<<"$evidence"
+grep -q 'no-accepted-current-artifact-evidence' <<<"$evidence"
+grep -q 'stable fallback; no accepted comparable evidence' <<<"$evidence"
 
 if grep -q 'avx2       yes' <<<"$target" && grep -q 'fma        yes' <<<"$target"; then
   resolved="$("$BIN" resolve simd-dot)"
@@ -39,7 +47,7 @@ else
   fi
 fi
 
-for cmd in info versions resolve explain audit; do
+for cmd in info versions resolve explain audit evidence; do
   if "$BIN" "$cmd" definitely-not-a-package >/dev/null 2>&1; then
     echo "expected unknown package lookup to fail: $cmd" >&2
     exit 1
