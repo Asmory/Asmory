@@ -3,17 +3,54 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080a0d">
 <title>Asmory — Packages for the instruction level</title>
 <meta name="description" content="Assembly package registry with ISA-aware target and Variant resolution.">
-<style>
-:root{color-scheme:dark;--bg:#080a0e;--panel:#11151b;--panel2:#0d1117;--line:#262d38;--text:#f5f7fa;--muted:#98a3b3;--gold:#f5b942;--gold2:#d9961e;--green:#6fe0a7}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 72% -10%,#302613 0,transparent 33rem),linear-gradient(180deg,#090b0f,var(--bg));color:var(--text);font:16px/1.65 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:inherit;text-decoration:none}main{max-width:1160px;margin:auto;padding:36px 24px 80px}nav{display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-size:25px;font-weight:850;letter-spacing:-.04em}.brand span,.gold{color:var(--gold)}.navlinks{display:flex;gap:10px;align-items:center}.chip{border:1px solid var(--line);background:#0c0f14aa;padding:9px 13px;border-radius:10px;color:var(--muted)}.hero{padding:110px 0 78px;max-width:920px}.kicker{color:var(--gold);font:700 12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase}h1{font-size:clamp(52px,9vw,102px);line-height:.92;letter-spacing:-.07em;margin:18px 0 28px}.lead{font-size:21px;color:var(--muted);max-width:790px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:34px}.btn{background:var(--gold);color:#171108;padding:13px 18px;border-radius:10px;font-weight:800}.btn.alt{background:transparent;color:var(--text);border:1px solid var(--line)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.card{padding:24px;background:linear-gradient(180deg,#12171e,#0d1117);border:1px solid var(--line);border-radius:16px}.card h3{margin:0 0 8px;font-size:17px}.card p{color:var(--muted);margin:0}.section{padding:80px 0 10px}.section h2{font-size:38px;letter-spacing:-.045em;margin:0 0 12px}.section>p{color:var(--muted);max-width:760px}.terminal{margin-top:28px;background:#05070a;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 25px 80px #0008}.termbar{padding:10px 14px;border-bottom:1px solid var(--line);color:#697585;font:12px ui-monospace,monospace}.terminal pre{margin:0;padding:24px;overflow:auto;font:14px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace}.ok{color:var(--green)}.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:28px}.flow div{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:16px;text-align:center;font:13px ui-monospace,monospace}.flow b{display:block;color:var(--gold);margin-bottom:5px}footer{margin-top:100px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--muted);gap:20px;flex-wrap:wrap}@media(max-width:800px){.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.hero{padding-top:72px}.navlinks .hide{display:none}}
-</style>
+<script>
+try{
+  const t=localStorage.getItem('asmory-theme');
+  if(t==='light'||t==='dark') document.documentElement.dataset.theme=t;
+}catch(_){}
+</script>
+<link rel="stylesheet" href="./style.css">
 </head>
 <body><main>
-<nav><div class="brand">Asm<span>ory</span></div><div class="navlinks"><a class="chip hide" href="#cli">CLI</a><a class="chip hide" href="#model">Target model</a><a class="chip" href="https://github.com/Asmory/Asmory">GitHub ↗</a></div></nav>
-<section class="hero"><div class="kicker">Assembly package ecosystem</div><h1>Packages for the instruction level.</h1><p class="lead">Asmory treats ISA versions, CPU extensions, ABI and object format as real dependency-resolution inputs. Reuse machine-level code without erasing the machine contract.</p><div class="actions"><a class="btn" href="https://github.com/Asmory/Asmory">Explore the repository</a><a class="btn alt" href="https://github.com/Asmory/Asmory/blob/main/CONTRIBUTING.md">Contribute</a></div></section>
-<div class="grid"><div class="card"><h3>ISA-aware</h3><p>AVX2, AVX-512, SVE2 and RVV are compatibility constraints, not decorative tags.</p></div><div class="card"><h3>Variant-oriented</h3><p>One package version can carry several machine implementations and let the resolver choose legally.</p></div><div class="card"><h3>Assembly-first</h3><p>The current registry and CLI are static x86-64 ELF programs built with GNU as + ld.</p></div></div>
-<section class="section" id="cli"><div class="kicker">Working CLI</div><h2>Ask the machine first.</h2><p>The bootstrap client reads CPUID and XGETBV directly, including OS support for AVX extended register state.</p><div class="terminal"><div class="termbar">asmory target</div><pre><span class="gold">$</span> ./build/asmory target
+<nav>
+  <div class="brand">Asm<span>ory</span></div>
+  <div class="navlinks">
+    <a class="chip hide" href="#cli">CLI</a>
+    <a class="chip hide" href="#model">Target model</a>
+    <button class="theme-toggle" type="button" data-theme-toggle title="Toggle theme">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.3A8.3 8.3 0 0 1 8.7 3.8 8.7 8.7 0 1 0 20.2 15.3Z"></path></svg>
+    </button>
+    <a class="chip" href="https://github.com/Asmory/Asmory">GitHub ↗</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="kicker">Assembly package ecosystem</div>
+  <h1>Packages for the instruction level.</h1>
+  <p class="lead">Asmory treats ISA versions, CPU extensions, ABI and object format as real dependency-resolution inputs. Reuse machine-level code without erasing the machine contract.</p>
+  <div class="actions">
+    <a class="btn" href="https://github.com/Asmory/Asmory">Explore the repository</a>
+    <a class="btn alt" href="https://github.com/Asmory/Asmory/blob/main/CONTRIBUTING.md">Contribute</a>
+  </div>
+</section>
+
+<div class="grid">
+  <div class="card"><h3>ISA-aware</h3><p>AVX2, AVX-512, SVE2 and RVV are compatibility constraints, not decorative tags.</p></div>
+  <div class="card"><h3>Variant-oriented</h3><p>One package version can carry several machine implementations and let the resolver choose legally.</p></div>
+  <div class="card"><h3>Assembly-first</h3><p>The current registry and CLI are static x86-64 ELF programs built with GNU as + ld.</p></div>
+</div>
+
+<section class="section" id="cli">
+  <div class="kicker">Working CLI</div>
+  <h2>Ask the machine first.</h2>
+  <p>The bootstrap client reads CPUID and XGETBV directly, including OS support for AVX extended register state.</p>
+  <div class="terminal">
+    <div class="termbar">asmory target</div>
+    <pre><span class="gold">$</span> ./build/asmory target
 
 Asmory host target
 
@@ -30,7 +67,28 @@ ISA
     avx2       <span class="ok">yes</span>
     fma        <span class="ok">yes</span>
     bmi2       <span class="ok">yes</span>
-    avx512f    no</pre></div></section>
-<section class="section" id="model"><div class="kicker">Resolver model</div><h2>Architecture is only the first coordinate.</h2><p>A Variant must survive correctness filtering before performance preference is even considered.</p><div class="flow"><div><b>Package</b>simd-dot</div><div><b>Version</b>0.1.0</div><div><b>Variant</b>x86_64-avx2-fma</div><div><b>Target</b>ELF64 / SysV64</div><div><b>Resolver</b>compatible → tuned</div></div></section>
-<footer><span>Asmory · Assembly packages with explicit machine contracts.</span><span>MIT · GitHub Actions · GitHub Pages</span></footer>
-</main></body></html>
+    avx512f    no</pre>
+  </div>
+</section>
+
+<section class="section" id="model">
+  <div class="kicker">Resolver model</div>
+  <h2>Architecture is only the first coordinate.</h2>
+  <p>A Variant must survive correctness filtering before performance preference is even considered.</p>
+  <div class="flow">
+    <div><b>Package</b>simd-dot</div>
+    <div><b>Version</b>0.1.0</div>
+    <div><b>Variant</b>x86_64-avx2-fma</div>
+    <div><b>Target</b>ELF64 / SysV64</div>
+    <div><b>Resolver</b>compatible → tuned</div>
+  </div>
+</section>
+
+<footer>
+  <span>Asmory · Assembly packages with explicit machine contracts.</span>
+  <span>MIT · GitHub Actions · GitHub Pages</span>
+</footer>
+</main>
+<script src="./theme.js"></script>
+</body>
+</html>
