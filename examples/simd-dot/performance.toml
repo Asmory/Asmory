@@ -1,0 +1,25 @@
+schema = 1
+benchmark_id = "simd-dot/dot-f32-v1"
+
+primary_metric = "ns_per_element"
+direction = "lower"
+baseline = "scalar"
+
+minimum_samples = 11
+regression_threshold_percent = 5.0
+
+[workload]
+operation = "dot-product"
+dtype = "f32"
+length = 4096
+
+[measurement]
+warmup = 256
+iterations = 20000
+affinity = "single-cpu"
+raw_samples = true
+
+[evidence]
+machine_profile = true
+artifact_sha256 = true
+cross_machine_ranking = false

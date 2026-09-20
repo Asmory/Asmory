@@ -1,0 +1,33 @@
+[[variant]]
+id = "x86_64-avx2-generic"
+
+[variant.compatibility]
+arch = "x86_64"
+os = "linux"
+object = "elf64"
+abi = "sysv64"
+baseline = "x86-64-v3"
+required = ["avx2", "fma"]
+
+[variant.tuning]
+microarch = ["generic-x86_64-v3"]
+
+[variant.performance]
+contract = "performance.toml"
+
+
+# Future examples:
+#
+# [[variant]]
+# id = "x86_64-avx2-zen4"
+#
+# [variant.compatibility]
+# arch = "x86_64"
+# baseline = "x86-64-v3"
+# required = ["avx2", "fma"]
+#
+# [variant.tuning]
+# microarch = ["zen4"]
+#
+# [variant.performance]
+# contract = "performance.toml"
