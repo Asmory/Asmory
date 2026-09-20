@@ -8,6 +8,7 @@ REGISTRY_OBJ := $(BUILD)/registry/server.o
 REGISTRY_BIN := $(BUILD)/asmory-registry
 CLI_OBJ := $(BUILD)/cli/main.o
 CLI_BIN := $(BUILD)/asmory
+ACQUIRE_HELPER := $(BUILD)/asmory-acquire
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
@@ -28,12 +29,12 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
 registry: $(REGISTRY_BIN)
-cli: $(CLI_BIN)
+cli: $(CLI_BIN) $(ACQUIRE_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -78,6 +79,10 @@ $(CLI_OBJ): cli/src/main.S $(CLI_REGISTRY_INC) | $(BUILD)/cli
 $(CLI_BIN): $(CLI_OBJ)
 	$(LD) $(LDFLAGS) $< -o $@
 
+$(ACQUIRE_HELPER): scripts/asmory-acquire.sh | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -98,9 +103,10 @@ perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
 
-install-user: $(CLI_BIN)
+install-user: $(CLI_BIN) $(ACQUIRE_HELPER)
 	install -Dm755 $(CLI_BIN) $(HOME)/.local/bin/asmory
-	@echo 'installed: $(HOME)/.local/bin/asmory'
+	install -Dm755 $(ACQUIRE_HELPER) $(HOME)/.local/bin/asmory-acquire
+	@echo 'installed: $(HOME)/.local/bin/asmory + asmory-acquire'
 
 dev: clean all check smoke cli-smoke
 
@@ -127,6 +133,9 @@ cli-smoke: $(CLI_BIN)
 
 workspace-smoke: $(CLI_BIN)
 	./scripts/workspace-smoke.sh
+
+acquire-smoke: registry cli packages
+	./scripts/acquire-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

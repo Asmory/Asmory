@@ -308,9 +308,11 @@ register state.
 ## Bootstrap CLI
 
 ```bash
+asmory init
 asmory target
 asmory search simd
 asmory info simd-dot
+asmory acquire simd-dot ./simd-dot-0.1.0.tar.gz
 asmory --version
 ```
 

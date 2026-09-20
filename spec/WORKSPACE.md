@@ -55,7 +55,7 @@ Git while dependencies remain **Exact** and reconstructible from the lockfile.
 
 > **Local-visible by default, Git-tracked when diverged.**
 
-This milestone creates the directory but does not fetch packages yet.
+The workspace foundation creates this directory. Artifact acquisition is a separate verified transport step and still does not materialize source here.
 
 ## Initialization safety
 
@@ -68,4 +68,4 @@ This milestone creates the directory but does not fetch packages yet.
 - is idempotent when both files already exist;
 - refuses a partial state where only one of those files exists.
 
-Acquisition is a later stage.
+Acquisition is implemented as a separate stage; cache and materialization remain later stages.

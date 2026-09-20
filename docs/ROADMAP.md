@@ -44,8 +44,10 @@
 - [x] generated `asm.lock` exact-resolution foundation
 - [x] `.asmory/deps/` local-visible materialization root
 - [x] non-overwriting / partial-state initialization rules
+- [x] `asmory acquire` bootstrap transport command
+- [x] fail-closed digest verification + atomic no-clobber output
 - [x] Exact / Modified terminology in dependency UX
-- [ ] Artifact acquisition
+- [x] Artifact acquisition + SHA-256 verification
 - [ ] content-addressed global cache
 - [ ] local materialization
 - [ ] computed Exact / Modified status

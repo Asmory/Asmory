@@ -33,4 +33,4 @@ manifest intent
   -> local materialization
 ```
 
-The next milestone implements acquisition and digest verification.
+Artifact acquisition and digest verification are implemented in the next layer; content-addressed cache is the following milestone.

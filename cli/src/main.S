@@ -1,5 +1,6 @@
 .section .rodata
 cmd_init:       .asciz "init"
+cmd_acquire:    .asciz "acquire"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -19,10 +20,19 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
+missing_acquire_msg:.asciz "asmory acquire: package and output path required\n"
+acquire_workspace_msg:.asciz "asmory acquire: no initialized workspace; run 'asmory init' first\n"
+acquire_backend_msg:.asciz "asmory acquire: bootstrap transport backend unavailable\n"
+acquire_incompat_msg:.asciz "asmory acquire: no compatible resolved Variant for this host\n"
+sh_path:          .asciz "/bin/sh"
+sh_name:          .asciz "sh"
+sh_c:             .asciz "-c"
+acquire_shell_cmd:.asciz "exec asmory-acquire \"$@\""
+acquire_argv0:    .asciz "asmory-acquire"
 missing_versions_msg: .asciz "asmory versions: package name required\n"
 not_found_msg: .asciz "asmory: package not found in bootstrap index\n"
 
@@ -183,12 +193,17 @@ xcr0_val:    .quad 0
 avx_ok:      .byte 0
 avx512_ok:   .byte 0
 baseline_ptr:.quad 0
+envp_ptr:    .quad 0
+.align 8
+acquire_exec_argv: .skip 72
 
 .section .text
 .global _start
 .type _start,@function
 _start:
     mov (%rsp), %r12
+    lea 16(%rsp,%r12,8), %rax
+    mov %rax, envp_ptr(%rip)
     cmp $2, %r12
     jb .show_help
     mov 16(%rsp), %r13
@@ -198,6 +213,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_init
+
+    mov %r13, %rdi
+    lea cmd_acquire(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_acquire
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -377,6 +398,79 @@ _start:
     lea init_fail_msg(%rip), %rdi
     call print_cstr
     mov $7, %edi
+    jmp exit_process
+
+.do_acquire:
+    cmp $4, %r12
+    jb .missing_acquire
+
+    lea init_manifest_path(%rip), %rdi
+    call path_exists
+    test %eax, %eax
+    jz .acquire_no_workspace
+
+    lea init_lock_path(%rip), %rdi
+    call path_exists
+    test %eax, %eax
+    jz .acquire_no_workspace
+
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    call check_bootstrap_variant
+    test %eax, %eax
+    jz .acquire_incompatible
+
+    lea acquire_exec_argv(%rip), %r10
+
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea acquire_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea acquire_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    lea registry_pkg_name(%rip), %rax
+    mov %rax, 32(%r10)
+    lea registry_version(%rip), %rax
+    mov %rax, 40(%r10)
+    lea registry_artifact_sha256(%rip), %rax
+    mov %rax, 48(%r10)
+    mov 32(%rsp), %rax
+    mov %rax, 56(%r10)
+    movq $0, 64(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea acquire_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_acquire:
+    lea missing_acquire_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.acquire_no_workspace:
+    lea acquire_workspace_msg(%rip), %rdi
+    call print_cstr
+    mov $9, %edi
+    jmp exit_process
+
+.acquire_incompatible:
+    lea acquire_incompat_msg(%rip), %rdi
+    call print_cstr
+    mov $4, %edi
     jmp exit_process
 
 .do_search:
