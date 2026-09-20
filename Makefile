@@ -18,6 +18,8 @@ VENDOR_HELPER := $(BUILD)/asmory-vendor
 WORKSPACE_HELPER := $(BUILD)/asmory-workspace
 FORK_HELPER := $(BUILD)/asmory-fork
 PUBLISH_HELPER := $(BUILD)/asmory-publish
+REGISTRY_WRITE_HELPER := $(BUILD)/asmory-registry-write
+REGISTRY_AUTH_HELPER := $(BUILD)/asmory-registry-auth
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
@@ -38,11 +40,12 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry registry-write cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke remote-publish-smoke dev clean install-user install-registry-write perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
-all: registry cli examples
+all: registry registry-write cli examples
 
 registry: $(REGISTRY_BIN)
+registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
 cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
@@ -128,6 +131,14 @@ $(PUBLISH_HELPER): scripts/asmory-publish.py | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
 
+$(REGISTRY_WRITE_HELPER): scripts/asmory-registry-write.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
+$(REGISTRY_AUTH_HELPER): scripts/asmory-registry-auth.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -161,6 +172,11 @@ install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATER
 	install -Dm755 $(FORK_HELPER) $(HOME)/.local/bin/asmory-fork
 	install -Dm755 $(PUBLISH_HELPER) $(HOME)/.local/bin/asmory-publish
 	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta/vendor/workspace/fork/publish helpers'
+
+install-registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
+	install -Dm755 $(REGISTRY_WRITE_HELPER) $(HOME)/.local/bin/asmory-registry-write
+	install -Dm755 $(REGISTRY_AUTH_HELPER) $(HOME)/.local/bin/asmory-registry-auth
+	@echo 'installed: authenticated Registry staging write service + token authority'
 
 dev: clean all check smoke cli-smoke
 
@@ -211,6 +227,9 @@ repo-workspace-smoke: cli packages
 
 fork-publication-smoke: registry cli packages
 	./scripts/fork-publication-smoke.sh
+
+remote-publish-smoke: registry registry-write cli packages
+	./scripts/remote-publish-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

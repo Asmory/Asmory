@@ -153,3 +153,18 @@ Forked `packages/<name>/` source is ordinary Git-visible project source.
 
 Temporary fork/publication transaction directories under `.asmory/` are
 ignored.
+
+## Authenticated remote staging
+
+After local preparation:
+
+```bash
+asmory publish my-dot
+```
+
+uploads the exact source Artifact and canonical candidate through the
+authenticated staging API.
+
+The resulting remote state is persistent and immutable for the staged
+`(Package, version)`, but remains `resolvable = false` until a future promotion
+step validates a complete Release/Variant publication contract.

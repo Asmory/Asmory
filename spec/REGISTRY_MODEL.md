@@ -82,6 +82,28 @@ artifact fetch + checksum verify
 
 Correctness always precedes tuning.
 
+## Publication staging is not an active Release
+
+Authenticated upload first creates a persistent **staged release candidate**.
+
+```text
+source Artifact + canonical candidate
+        ↓ authenticated write API
+persistent staging
+        ↓
+state = staged
+resolvable = false
+```
+
+This is deliberately separate from the immutable active Release object.
+
+The current candidate proves source identity, Package boundary and Git
+provenance, but does not yet contain every validated Semantic and Machine
+Variant field required for resolver-visible publication.
+
+Promotion to an active Release is therefore an explicit later transition, not
+an automatic side effect of byte upload.
+
 ## Immutability
 
 A previously published `(project, version, artifact filename)` may not be

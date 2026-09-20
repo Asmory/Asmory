@@ -79,7 +79,9 @@
 - [x] Package-level fork identity transition
 - [x] fork ancestry binds original Artifact + actual local source tree
 - [x] deterministic local publication candidate
-- [ ] authenticated remote publication transition
+- [x] authenticated remote candidate + Artifact staging transition
+- [x] persistent staged Package/version ownership state
+- [ ] validated promotion from staged candidate to active Release
 
 ## M3 — Real index/storage
 
@@ -89,8 +91,10 @@
 - [x] checksum + immutable Release semantics specified
 - [x] normalized global Project names + owner/maintainer model specified
 
-- [ ] real persistent storage backend
-- [ ] authenticated publish/write API
+- [x] persistent content-addressed publication staging backend
+- [x] bearer-token authenticated candidate/Artifact write API
+- [x] immutable + idempotent staged Package/version records
+- [ ] active Release promotion/index backend
 - [ ] server-side search index
 
 ## M2.5 — Semantic Type System MVP

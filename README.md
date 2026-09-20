@@ -323,6 +323,7 @@ asmory vendor simd-dot
 asmory workspace
 asmory fork simd-dot my-dot
 asmory publish-prepare my-dot
+asmory publish my-dot
 asmory --version
 ```
 
@@ -342,6 +343,26 @@ Variants and Artifacts remain independent. Source Releases may record
 remains the Artifact SHA-256.
 
 See [`spec/REPOSITORY_WORKSPACE.md`](spec/REPOSITORY_WORKSPACE.md).
+
+## Authenticated publication staging
+
+`asmory publish <package>` performs a real authenticated network upload of the
+prepared source Artifact and canonical release candidate.
+
+The write-side service persists content-addressed Artifacts and immutable staged
+Package/version records.
+
+Staged candidates are intentionally **not resolver-visible yet**:
+
+```text
+state      staged
+resolvable false
+```
+
+Asmory will only promote a staged candidate after the full Release, Semantic
+and Machine Variant publication contract is validated.
+
+See [`spec/AUTHENTICATED_STAGING.md`](spec/AUTHENTICATED_STAGING.md).
 
 ## Package model
 
