@@ -8,6 +8,7 @@ REGISTRY_OBJ := $(BUILD)/registry/server.o
 REGISTRY_BIN := $(BUILD)/asmory-registry
 CLI_OBJ := $(BUILD)/cli/main.o
 CLI_BIN := $(BUILD)/asmory
+CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
 VARIANT_BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/compare_variants.o
@@ -19,6 +20,7 @@ BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/bench.o
 BENCH_BIN := $(BUILD)/benchmarks/simd-dot-bench
 PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
 RELEASE_JSON := $(BUILD)/registry-data/simd-dot-0.1.0.json
+SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
 .PHONY: all registry cli examples packages registry-data run check smoke cli-smoke dev clean install-user perf-build perf perf-variants contract-check conformance-build conformance
@@ -31,10 +33,10 @@ examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON)
 
-$(BUILD)/registry $(BUILD)/cli $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance $(BUILD)/conformance/simd-dot:
+$(BUILD)/registry $(BUILD)/cli $(BUILD)/generated $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance $(BUILD)/conformance/simd-dot:
 	mkdir -p $@
 
-$(PACKAGE_ARCHIVE): examples/simd-dot/asm.toml examples/simd-dot/src/dot.S | $(BUILD)/packages
+$(PACKAGE_ARCHIVE): $(SIMD_DOT_PACKAGE_INPUTS) | $(BUILD)/packages
 	tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf $@ -C examples simd-dot
 
 $(RELEASE_JSON): registry/data/simd-dot-release-0.1.0.json.in $(PACKAGE_ARCHIVE) scripts/render-release-json.sh | $(BUILD)/registry-data
@@ -47,8 +49,11 @@ $(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JS
 $(REGISTRY_BIN): $(REGISTRY_OBJ)
 	$(LD) $(LDFLAGS) $< -o $@
 
-$(CLI_OBJ): cli/src/main.S | $(BUILD)/cli
-	$(AS) $(ASFLAGS) $< -o $@
+$(CLI_REGISTRY_INC): $(RELEASE_JSON) scripts/render-cli-registry-inc.sh | $(BUILD)/generated
+	./scripts/render-cli-registry-inc.sh $(RELEASE_JSON) $@
+
+$(CLI_OBJ): cli/src/main.S $(CLI_REGISTRY_INC) | $(BUILD)/cli
+	$(AS) $(ASFLAGS) -I. $< -o $@
 
 $(CLI_BIN): $(CLI_OBJ)
 	$(LD) $(LDFLAGS) $< -o $@

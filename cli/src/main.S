@@ -5,26 +5,78 @@ cmd_search:     .asciz "search"
 cmd_help:       .asciz "help"
 cmd_version:    .asciz "version"
 cmd_versions:   .asciz "versions"
+cmd_resolve:    .asciz "resolve"
+cmd_explain:    .asciz "explain"
+cmd_audit:      .asciz "audit"
 cmd_vflag:      .asciz "--version"
 cmd_hflag:      .asciz "--help"
 pkg_simd_dot:   .asciz "simd-dot"
 
+.include "build/generated/cli_registry.inc"
+
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
 missing_versions_msg: .asciz "asmory versions: package name required\n"
 not_found_msg: .asciz "asmory: package not found in bootstrap index\n"
 
+missing_resolve_msg: .asciz "asmory resolve: package name required\n"
+missing_explain_msg: .asciz "asmory explain: package name required\n"
+missing_audit_msg:   .asciz "asmory audit: package name required\n"
+
 search_msg:
 .asciz "bootstrap index\n\nNAME       VERSION  TARGET                         DESCRIPTION\nsimd-dot   0.1.0    x86_64 / AVX2 + FMA / SysV64  AVX2/FMA f32 dot product\n"
 
 versions_msg:
-.asciz "simd-dot releases\n\nVERSION  PUBLISHED   VARIANTS  STATUS\n0.1.0    2026-09-20  1         active\n"
+.asciz "simd-dot releases\n\nVERSION  PUBLISHED   VARIANTS  STATUS\n0.1.0    2026-09-20  2         active\n"
 
 info_msg:
 .asciz "simd-dot 0.1.0\n\nPackage\n  license      MIT\n  status       example\n\nTarget\n  arch         x86_64\n  os           linux\n  object       elf64\n  abi          sysv64\n  baseline     x86-64-v3\n  requires     avx2, fma\n\nToolchain\n  assembler    gas >= 2.40\n\nExports\n  simd_dot_f32\n"
+
+res_title:          .asciz "Resolved dependency\n\n"
+res_explain_title:  .asciz "Resolution explanation\n\n"
+res_audit_title:    .asciz "Artifact and review status\n\n"
+res_sem_head:       .asciz "Semantics\n"
+res_machine_head:   .asciz "\nMachine\n"
+res_select_head:    .asciz "\nSelection\n"
+res_user_head:      .asciz "User intent\n"
+res_defaults_head:  .asciz "\nExpanded defaults\n"
+res_candidates_head:.asciz "\nCandidates\n"
+res_security_head:  .asciz "\nSecurity\n"
+res_artifact_head:  .asciz "Artifact\n"
+
+res_lab_package:    .asciz "  package      "
+res_lab_release:    .asciz "  release      "
+res_lab_capability: .asciz "  capability   "
+res_lab_profile:    .asciz "  profile      "
+res_lab_provider:   .asciz "  provider     "
+res_lab_requires:   .asciz "  requires     "
+res_lab_result:     .asciz "  result       "
+res_lab_variant:    .asciz "  variant      "
+res_lab_alternate:  .asciz "  alternate    "
+res_lab_artifact:   .asciz "  artifact     "
+res_lab_filename:   .asciz "  filename     "
+res_lab_sha256:     .asciz "  sha256       "
+res_lab_policy:     .asciz "  policy       "
+res_lab_dependency: .asciz "  dependency   "
+res_lab_version:    .asciz "  version      "
+res_lab_review:     .asciz "  review       "
+res_lab_anchor:     .asciz "  anchor       "
+res_lab_safety:     .asciz "  registry     "
+res_lab_advisories: .asciz "  advisories   "
+res_lab_integrity:  .asciz "  local integrity  "
+
+res_compatible:     .asciz "compatible"
+res_incompatible:   .asciz "incompatible"
+res_default_version:.asciz "default -> 0.1.0"
+res_not_evaluated:  .asciz "not evaluated"
+res_candidate_note: .asciz "  ranking      stable preferred; experimental retained\n"
+res_final_none:     .asciz "  final        none\n"
+res_final_prefix:   .asciz "  final        "
+res_fail_msg:       .asciz "asmory resolve: no compatible Variant; host lacks AVX2/FMA required by simd-dot\n"
+res_audit_note:     .asciz "\nNote\n  Exact Artifact != Safe Artifact\n  Digest verification proves identity, not benign behavior.\n"
 
 target_head: .asciz "Asmory host target\n\n"
 arch_line:   .asciz "Target\n  arch         x86_64\n  os           linux\n  object       elf64\n  abi          sysv64\n"
@@ -83,6 +135,24 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_versions
+
+    mov %r13, %rdi
+    lea cmd_resolve(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_resolve
+
+    mov %r13, %rdi
+    lea cmd_explain(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_explain
+
+    mov %r13, %rdi
+    lea cmd_audit(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_audit
 
     mov %r13, %rdi
     lea cmd_info(%rip), %rsi
@@ -184,6 +254,226 @@ _start:
     mov $3, %edi
     jmp exit_process
 
+.do_resolve:
+    cmp $3, %r12
+    jb .missing_resolve
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    call check_bootstrap_variant
+    test %eax, %eax
+    jz .resolve_incompatible
+
+    lea res_title(%rip), %rdi
+    call print_cstr
+
+    lea res_lab_package(%rip), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call print_kv
+    lea res_lab_release(%rip), %rdi
+    lea registry_version(%rip), %rsi
+    call print_kv
+
+    lea res_sem_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_capability(%rip), %rdi
+    lea registry_capability(%rip), %rsi
+    call print_kv
+    lea res_lab_profile(%rip), %rdi
+    lea registry_profile(%rip), %rsi
+    call print_kv
+    lea res_lab_provider(%rip), %rdi
+    lea registry_provider(%rip), %rsi
+    call print_kv
+
+    lea res_machine_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_requires(%rip), %rdi
+    lea registry_required_isa(%rip), %rsi
+    call print_kv
+    lea res_lab_result(%rip), %rdi
+    lea res_compatible(%rip), %rsi
+    call print_kv
+
+    lea res_select_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_variant(%rip), %rdi
+    lea registry_variant_primary(%rip), %rsi
+    call print_kv
+    lea res_lab_artifact(%rip), %rdi
+    lea registry_artifact_kind(%rip), %rsi
+    call print_kv
+    lea res_lab_filename(%rip), %rdi
+    lea registry_artifact_filename(%rip), %rsi
+    call print_kv
+    lea res_lab_sha256(%rip), %rdi
+    lea registry_artifact_sha256(%rip), %rsi
+    call print_kv
+    lea res_lab_policy(%rip), %rdi
+    lea registry_artifact_policy(%rip), %rsi
+    call print_kv
+    lea res_lab_dependency(%rip), %rdi
+    lea registry_dependency_kind(%rip), %rsi
+    call print_kv
+
+    xor %edi, %edi
+    jmp exit_process
+
+.resolve_incompatible:
+    lea res_fail_msg(%rip), %rdi
+    call print_cstr
+    mov $4, %edi
+    jmp exit_process
+
+.missing_resolve:
+    lea missing_resolve_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_explain:
+    cmp $3, %r12
+    jb .missing_explain
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    lea res_explain_title(%rip), %rdi
+    call print_cstr
+
+    lea res_user_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_package(%rip), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call print_kv
+    lea res_lab_version(%rip), %rdi
+    lea res_default_version(%rip), %rsi
+    call print_kv
+
+    lea res_defaults_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_policy(%rip), %rdi
+    lea registry_artifact_policy(%rip), %rsi
+    call print_kv
+    lea res_lab_dependency(%rip), %rdi
+    lea registry_dependency_kind(%rip), %rsi
+    call print_kv
+
+    lea res_sem_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_capability(%rip), %rdi
+    lea registry_capability(%rip), %rsi
+    call print_kv
+    lea res_lab_profile(%rip), %rdi
+    lea registry_profile(%rip), %rsi
+    call print_kv
+
+    lea res_candidates_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_variant(%rip), %rdi
+    lea registry_variant_primary(%rip), %rsi
+    call print_kv
+    lea res_lab_alternate(%rip), %rdi
+    lea registry_variant_alternate(%rip), %rsi
+    call print_kv
+    lea res_candidate_note(%rip), %rdi
+    call print_cstr
+
+    lea res_machine_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_requires(%rip), %rdi
+    lea registry_required_isa(%rip), %rsi
+    call print_kv
+
+    call check_bootstrap_variant
+    test %eax, %eax
+    jz .explain_incompatible
+
+    lea res_lab_result(%rip), %rdi
+    lea res_compatible(%rip), %rsi
+    call print_kv
+    lea res_final_prefix(%rip), %rdi
+    call print_cstr
+    lea registry_variant_primary(%rip), %rdi
+    call print_cstr
+    lea newline(%rip), %rdi
+    call print_cstr
+    xor %edi, %edi
+    jmp exit_process
+
+.explain_incompatible:
+    lea res_lab_result(%rip), %rdi
+    lea res_incompatible(%rip), %rsi
+    call print_kv
+    lea res_final_none(%rip), %rdi
+    call print_cstr
+    xor %edi, %edi
+    jmp exit_process
+
+.missing_explain:
+    lea missing_explain_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_audit:
+    cmp $3, %r12
+    jb .missing_audit
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    lea res_audit_title(%rip), %rdi
+    call print_cstr
+
+    lea res_artifact_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_package(%rip), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call print_kv
+    lea res_lab_release(%rip), %rdi
+    lea registry_version(%rip), %rsi
+    call print_kv
+    lea res_lab_sha256(%rip), %rdi
+    lea registry_artifact_sha256(%rip), %rsi
+    call print_kv
+    lea res_lab_integrity(%rip), %rdi
+    lea res_not_evaluated(%rip), %rsi
+    call print_kv
+
+    lea res_security_head(%rip), %rdi
+    call print_cstr
+    lea res_lab_review(%rip), %rdi
+    lea registry_review_state(%rip), %rsi
+    call print_kv
+    lea res_lab_anchor(%rip), %rdi
+    lea registry_reviewed_anchor(%rip), %rsi
+    call print_kv
+    lea res_lab_safety(%rip), %rdi
+    lea registry_safety_state(%rip), %rsi
+    call print_kv
+    lea res_lab_advisories(%rip), %rdi
+    lea registry_advisories(%rip), %rsi
+    call print_kv
+
+    lea res_audit_note(%rip), %rdi
+    call print_cstr
+    xor %edi, %edi
+    jmp exit_process
+
+.missing_audit:
+    lea missing_audit_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
 .do_target:
     call detect_cpu
     lea target_head(%rip), %rdi
@@ -268,6 +558,28 @@ _start:
 
     xor %edi, %edi
     jmp exit_process
+
+# eax=1 when this bootstrap package's Machine Contract is legal.
+check_bootstrap_variant:
+    call detect_cpu
+
+    cmpb $1, avx_ok(%rip)
+    jne .cbv_no
+
+    mov leaf7_ebx(%rip), %eax
+    bt $5, %eax
+    jnc .cbv_no
+
+    mov leaf1_ecx(%rip), %eax
+    bt $12, %eax
+    jnc .cbv_no
+
+    mov $1, %eax
+    ret
+
+.cbv_no:
+    xor %eax, %eax
+    ret
 
 # Detect CPUID leaves and classify x86-64 baseline.
 detect_cpu:
@@ -406,6 +718,16 @@ print_feature:
 .pf_no:
     lea no_msg(%rip), %rdi
     jmp print_cstr
+
+# rdi=label c-string, rsi=value c-string.
+print_kv:
+    push %rsi
+    call print_cstr
+    pop %rdi
+    call print_cstr
+    lea newline(%rip), %rdi
+    call print_cstr
+    ret
 
 # int streq(const char *a, const char *b) -> eax 0/1
 streq:

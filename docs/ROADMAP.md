@@ -26,10 +26,14 @@
 - [x] x86-64-v1/v2/v3/v4 baseline classification
 - [x] bootstrap `asmory search`
 - [x] bootstrap `asmory info`
+- [x] `asmory resolve` bootstrap Machine Contract filtering
+- [x] `asmory explain` resolution trace
+- [x] `asmory audit` Artifact/Review/Advisory separation
+- [x] Registry Release JSON -> generated Assembly metadata bridge
 - [ ] remote registry client
 - [ ] `asmory init`
 - [ ] `asmory add`
-- [ ] target/Variant compatibility resolution
+- [x] bootstrap target/Variant compatibility resolution
 - [ ] lockfile
 
 ## M3 — Real index/storage
