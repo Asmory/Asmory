@@ -319,6 +319,7 @@ asmory status
 asmory restore simd-dot
 asmory patch simd-dot
 asmory reapply simd-dot
+asmory vendor simd-dot
 asmory --version
 ```
 

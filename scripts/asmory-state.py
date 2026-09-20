@@ -153,6 +153,47 @@ def load_lock(root: Path) -> dict:
     return data
 
 
+
+def dependency_source(dep: dict) -> str:
+    source = dep.get("source_kind", "registry")
+
+    if source not in ("registry", "vendor"):
+        raise StateError(f"unsupported dependency source_kind: {source!r}")
+
+    return source
+
+
+def canonical_vendor_path(root: Path, dep: dict) -> Path:
+    name = dep["name"]
+    declared = dep.get("vendor_path")
+    expected = f"vendor/{name}"
+
+    if declared != expected:
+        raise StateError(
+            f"unsafe/non-canonical vendor path for {name}: {declared!r}"
+        )
+
+    vendor_root = (root / "vendor").resolve()
+    local = (root / declared).absolute()
+
+    try:
+        parent = local.parent.resolve()
+    except OSError as exc:
+        raise StateError(f"cannot resolve vendor parent for {name}: {exc}") from exc
+
+    if parent != vendor_root:
+        raise StateError(f"vendor path escapes project vendor root: {name}")
+
+    return local
+
+
+def active_dependency_path(root: Path, dep: dict) -> Path:
+    if dependency_source(dep) == "vendor":
+        return canonical_vendor_path(root, dep)
+
+    return canonical_local_path(root, dep)
+
+
 def canonical_local_path(root: Path, dep: dict) -> Path:
     name = dep["name"]
     declared = dep.get("materialized_path")
@@ -178,7 +219,7 @@ def canonical_local_path(root: Path, dep: dict) -> Path:
 
 
 def dependency_state(root: Path, dep: dict) -> tuple[str, str | None]:
-    local = canonical_local_path(root, dep)
+    local = active_dependency_path(root, dep)
     baseline = dep.get("materialized_tree_sha256")
     schema = dep.get("tree_hash_schema")
 
@@ -270,6 +311,7 @@ def print_status(root: Path, data: dict) -> int:
 
     for index, dep in enumerate(deps):
         state, actual = dependency_state(root, dep)
+        source = dependency_source(dep)
         divergence, saved_patch, patch_tree = patch_capture_state(
             root,
             dep,
@@ -277,10 +319,20 @@ def print_status(root: Path, data: dict) -> int:
             actual,
         )
 
+        if source == "vendor":
+            divergence = "project-owned"
+            ownership = "project"
+            shown_path = dep.get("vendor_path", "?")
+        else:
+            ownership = "registry-derived"
+            shown_path = dep.get("materialized_path", "?")
+
         if index:
             print()
 
         print(f"{dep['name']} {dep.get('release', '?')}")
+        print(f"  source      {source}")
+        print(f"  ownership   {ownership}")
         print(f"  state       {state}")
         print(f"  divergence  {divergence}")
         print(f"  saved patch {saved_patch}")
@@ -290,7 +342,7 @@ def print_status(root: Path, data: dict) -> int:
         print(f"  local tree  {actual if actual is not None else '-'}")
         print(f"  profile     {dep.get('profile', '?')}")
         print(f"  variant     {dep.get('variant', '?')}")
-        print(f"  path        {dep.get('materialized_path', '?')}")
+        print(f"  path        {shown_path}")
 
     return 0
 
@@ -341,6 +393,12 @@ def _cache_object(dep: dict) -> Path:
 
 def restore_dependency(root: Path, data: dict, name: str) -> int:
     dep = _find_dependency(data, name)
+
+    if dependency_source(dep) != "registry":
+        raise StateError(
+            f"{name}: vendored dependency is project-owned; restore applies only to registry materializations"
+        )
+
     local = canonical_local_path(root, dep)
 
     baseline = dep.get("materialized_tree_sha256")

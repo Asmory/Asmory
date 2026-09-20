@@ -66,7 +66,10 @@
 - [x] Git-visible `.asmory/patches/` handoff
 - [x] captured/uncaptured divergence status
 - [x] offline transactional `asmory reapply`
-- [ ] explicit vendor transition
+- [x] explicit vendor transition
+- [x] project-owned path dependency + Registry provenance
+- [x] transactional vendor ownership handoff
+- [x] Registry lifecycle refusal for vendored source
 - [ ] fork/publication transition
 
 ## M3 — Real index/storage

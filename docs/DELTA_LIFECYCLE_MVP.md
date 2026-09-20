@@ -31,3 +31,11 @@ local work.
 
 This provides the first reproducible Modified-dependency handoff without
 pretending the local derivative is the original Registry Artifact.
+
+For full-source ownership rather than a compact derivative, use:
+
+```bash
+asmory vendor simd-dot
+```
+
+That transition is intentionally separate from patch capture.

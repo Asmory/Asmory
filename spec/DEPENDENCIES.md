@@ -296,6 +296,27 @@ reconstructible working materialization.
 
 `reapply` refuses to overwrite unrelated uncaptured local work.
 
+## Explicit full-source ownership
+
+Patch capture preserves a derivative relative to a Registry base.
+
+Vendoring is the explicit alternative when the project wants the complete tree
+to become ordinary project-owned source:
+
+```text
+registry-derived .asmory/deps/<package>
+    -> asmory vendor <package>
+project-owned vendor/<package>
+```
+
+The manifest becomes a local path dependency and the whole vendored tree is
+Git-visible.
+
+The lockfile retains Registry ancestry but marks the active source as `vendor`.
+
+Registry-oriented restore/patch/reapply commands refuse to silently retake
+control of project-owned source.
+
 ## Leaf-first default
 
 Asmory v1 should default to direct, leaf dependencies.

@@ -78,3 +78,12 @@ Deterministic local delta records live here so a Modified dependency can be
 handed off through Git without committing the whole materialized dependency.
 
 Runtime staging under `.asmory/.delta/` remains ignored.
+
+## `vendor/` — project-owned dependencies
+
+`asmory vendor <package>` moves a dependency out of the ignored reconstructible
+`.asmory/deps/` working area and into `vendor/<package>/`.
+
+`vendor/` is ordinary project source and is intentionally not ignored.
+
+Temporary transaction state under `.asmory/.vendor/` is ignored.

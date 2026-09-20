@@ -123,7 +123,7 @@ if [[ -e ".asmory/deps/$package" || -L ".asmory/deps/$package" ]]; then
   exit 15
 fi
 
-for ignored in 'deps/' '.staging/' '.restore/' '.delta/' 'workspace.lock'; do
+for ignored in 'deps/' '.staging/' '.restore/' '.delta/' '.vendor/' 'workspace.lock'; do
   grep -qxF "$ignored" .asmory/.gitignore 2>/dev/null ||
     printf '%s\n' "$ignored" >> .asmory/.gitignore
 done
@@ -182,6 +182,7 @@ materialized_tree_sha256 = "$tree_sha"
 review_state = "$review_state"
 registry_safety = "$safety_state"
 materialized_path = ".asmory/deps/$package"
+source_kind = "registry"
 EOF
 
 cp -- asm.toml "$backup_manifest"

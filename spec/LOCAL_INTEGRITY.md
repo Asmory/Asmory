@@ -85,6 +85,24 @@ tree.
 A later local edit immediately returns divergence to `uncaptured` without
 deleting the saved patch.
 
+## Ownership is also independent
+
+Asmory reports source ownership separately from integrity:
+
+```text
+source = registry
+ownership = registry-derived
+
+source = vendor
+ownership = project
+```
+
+A project-owned vendored tree may still be Exact or Modified relative to its
+recorded Registry ancestry.
+
+That comparison is provenance information; it does not make the package manager
+the owner of vendored source again.
+
 ## Important distinction
 
 ```text

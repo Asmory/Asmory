@@ -33,4 +33,4 @@ This implements the core rule:
 > **Local-visible by default, Git-tracked when diverged.**
 
 The next lifecycle layer now implements deterministic patch capture/reapply for
-Modified dependencies. Vendor and fork remain explicit future alternatives.
+Modified dependencies. Vendor is now an explicit project-ownership transition. Fork/publication remains the next ownership transition.

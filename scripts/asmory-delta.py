@@ -89,6 +89,13 @@ def find_dependency(data: dict, name: str) -> dict:
 
 def validate_locked_dependency(dep: dict) -> None:
     name = dep.get("name")
+    source_kind = dep.get("source_kind", "registry")
+
+    if source_kind != "registry":
+        raise DeltaError(
+            f"{name}: vendored dependency is project-owned; patch/reapply apply only to registry materializations"
+        )
+
     release = dep.get("release")
     artifact = dep.get("artifact_sha256")
     tree_schema = dep.get("tree_hash_schema")
