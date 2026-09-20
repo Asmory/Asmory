@@ -1,0 +1,54 @@
+AS ?= as
+LD ?= ld
+ASFLAGS := --64
+LDFLAGS := -z noexecstack
+BUILD := build
+REGISTRY_OBJ := $(BUILD)/registry/server.o
+REGISTRY_BIN := $(BUILD)/asmory-registry
+EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
+PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
+STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
+
+.PHONY: all registry examples packages run check smoke clean dev
+
+all: registry examples
+
+registry: $(REGISTRY_BIN)
+examples: $(EXAMPLE_OBJ)
+packages: $(PACKAGE_ARCHIVE)
+
+$(BUILD)/registry $(BUILD)/examples/simd-dot $(BUILD)/packages:
+	mkdir -p $@
+
+$(PACKAGE_ARCHIVE): examples/simd-dot/asm.toml examples/simd-dot/src/dot.S | $(BUILD)/packages
+	tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf $@ -C examples simd-dot
+
+$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) | $(BUILD)/registry
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(REGISTRY_BIN): $(REGISTRY_OBJ)
+	$(LD) $(LDFLAGS) $< -o $@
+
+$(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
+	$(AS) $(ASFLAGS) $< -o $@
+
+run: $(REGISTRY_BIN)
+	./$(REGISTRY_BIN)
+
+dev: clean all check smoke
+
+check: all
+	@echo '== registry binary =='
+	@file $(REGISTRY_BIN)
+	@echo 'bytes:'
+	@wc -c < $(REGISTRY_BIN)
+	@echo '== embedded assets =='
+	@wc -c registry/static/* registry/data/* $(PACKAGE_ARCHIVE)
+	@echo '== example symbols =='
+	@nm $(EXAMPLE_OBJ)
+
+smoke: $(REGISTRY_BIN)
+	./scripts/smoke.sh
+
+clean:
+	rm -rf $(BUILD)

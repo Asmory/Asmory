@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible Asmory problem
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Target
+      description: Architecture, ISA, ABI, OS and assembler information.
+      placeholder: |
+        arch: x86_64
+        isa: x86-64-v3
+        features: avx2,fma
+        abi: sysv64
+        object: elf64
+        assembler: GNU as ...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+    validations:
+      required: true
