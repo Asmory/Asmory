@@ -22,6 +22,8 @@ NAME_RE = re.compile(r"[a-z0-9][a-z0-9._-]*")
 VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z.-]+)?")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
 OWNER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+CAPABILITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
+FACET_PATH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
 ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+@/-]{0,255}")
 MAX_CANDIDATE = 1024 * 1024
 MAX_PROMOTION_REQUEST = 64 * 1024
@@ -151,6 +153,7 @@ class RegistryState:
         self.active_root = data_dir / "active"
         self.active = self.active_root / "projects"
         self.active_index_path = self.active_root / "index.json"
+        self.semantic_index_path = self.active_root / "semantic-index.json"
         self.locks = data_dir / "locks"
         self.incoming = data_dir / "incoming"
 
@@ -168,6 +171,7 @@ class RegistryState:
         # records. Rebuild on startup so restart/crash recovery cannot leave
         # a stale resolver/search view.
         self.rebuild_active_index()
+        self.rebuild_semantic_index()
 
     def auth_owner(self, header: str | None) -> str:
         if not header or not header.startswith("Bearer "):
@@ -398,6 +402,214 @@ class RegistryState:
             return self.rebuild_active_index()
 
         return data
+
+
+    @staticmethod
+    def semantic_facet_key(path: str, value) -> str:
+        encoded = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return f"{path}={encoded}"
+
+    @classmethod
+    def semantic_facet_keys(cls, semantics: dict) -> list[str]:
+        keys = []
+
+        def walk(prefix: str, value) -> None:
+            if isinstance(value, dict):
+                for name in sorted(value):
+                    child = f"{prefix}.{name}" if prefix else name
+                    walk(child, value[name])
+                return
+            keys.append(cls.semantic_facet_key(prefix, value))
+
+        for root in ("interface", "requires", "guarantees"):
+            value = semantics.get(root)
+            if isinstance(value, dict):
+                walk(root, value)
+
+        return sorted(set(keys))
+
+    def build_semantic_index_document(self) -> dict:
+        providers = {}
+        by_capability = {}
+        by_fingerprint = {}
+        by_facet = {}
+
+        for entry in sorted(self.active.iterdir(), key=lambda p: p.name):
+            if not entry.is_dir() or entry.is_symlink():
+                continue
+
+            package = entry.name
+            if NAME_RE.fullmatch(package) is None:
+                continue
+
+            versions = self.active_versions_sorted(package)
+            if not versions:
+                continue
+
+            version = versions[0]
+            record = self.load_active_release(package, version)
+            release = record["release"]
+
+            capability = release.get("capability")
+            fingerprint = release.get("semantic_fingerprint")
+            semantics = release.get("canonical_semantics")
+            profile = release.get("profile")
+
+            if (
+                not isinstance(capability, str)
+                or CAPABILITY_RE.fullmatch(capability) is None
+                or not isinstance(fingerprint, str)
+                or SHA_RE.fullmatch(fingerprint) is None
+                or not isinstance(semantics, dict)
+                or not isinstance(profile, str)
+                or not profile
+            ):
+                raise RegistryError(
+                    500,
+                    f"active Release semantic metadata invalid: "
+                    f"{package}@{version}",
+                )
+
+            provider_id = f"{package}@{version}"
+            variants = release.get("variants", [])
+            arches = sorted(
+                {
+                    target.get("arch")
+                    for variant in variants
+                    if isinstance(variant, dict)
+                    for target in [variant.get("target")]
+                    if isinstance(target, dict)
+                    and isinstance(target.get("arch"), str)
+                }
+            )
+
+            provider = {
+                "id": provider_id,
+                "package": package,
+                "version": version,
+                "owner": record.get("owner"),
+                "capability": capability,
+                "profile": profile,
+                "semantic_fingerprint": fingerprint,
+                "review": release.get("review", {}).get("state"),
+                "safety": release.get("safety", {}).get("state"),
+                "arches": arches,
+                "release": f"/api/v1/packages/{package}/{version}",
+            }
+
+            providers[provider_id] = provider
+            by_capability.setdefault(capability, []).append(provider_id)
+            by_fingerprint.setdefault(fingerprint, []).append(provider_id)
+
+            for facet in self.semantic_facet_keys(semantics):
+                by_facet.setdefault(facet, []).append(provider_id)
+
+        for index in (by_capability, by_fingerprint, by_facet):
+            for key in index:
+                index[key] = sorted(set(index[key]))
+
+        return {
+            "registry": "Asmory",
+            "schema": 1,
+            "kind": "asmory-semantic-provider-index",
+            "providers": {
+                key: providers[key]
+                for key in sorted(providers)
+            },
+            "by_capability": {
+                key: by_capability[key]
+                for key in sorted(by_capability)
+            },
+            "by_fingerprint": {
+                key: by_fingerprint[key]
+                for key in sorted(by_fingerprint)
+            },
+            "by_facet": {
+                key: by_facet[key]
+                for key in sorted(by_facet)
+            },
+        }
+
+    def rebuild_semantic_index(self) -> dict:
+        with self.active_index_lock():
+            document = self.build_semantic_index_document()
+            atomic_write(
+                self.semantic_index_path,
+                canonical_json(document),
+                0o444,
+            )
+            return document
+
+    def load_semantic_index(self) -> dict:
+        if (
+            not self.semantic_index_path.is_file()
+            or self.semantic_index_path.is_symlink()
+        ):
+            return self.rebuild_semantic_index()
+
+        try:
+            data = json.loads(self.semantic_index_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return self.rebuild_semantic_index()
+
+        if (
+            data.get("registry") != "Asmory"
+            or data.get("schema") != 1
+            or data.get("kind") != "asmory-semantic-provider-index"
+            or not isinstance(data.get("providers"), dict)
+            or not isinstance(data.get("by_capability"), dict)
+            or not isinstance(data.get("by_fingerprint"), dict)
+            or not isinstance(data.get("by_facet"), dict)
+        ):
+            return self.rebuild_semantic_index()
+
+        return data
+
+    def semantic_provider_candidates(
+        self,
+        capability: str | None,
+        fingerprint: str | None,
+        facets: list[str],
+        limit: int,
+    ) -> list[dict]:
+        index = self.load_semantic_index()
+        candidate_sets = []
+
+        if capability is not None:
+            candidate_sets.append(
+                set(index["by_capability"].get(capability, []))
+            )
+
+        if fingerprint is not None:
+            candidate_sets.append(
+                set(index["by_fingerprint"].get(fingerprint, []))
+            )
+
+        for facet in facets:
+            candidate_sets.append(
+                set(index["by_facet"].get(facet, []))
+            )
+
+        if candidate_sets:
+            candidate_ids = set.intersection(*candidate_sets)
+        else:
+            candidate_ids = set(index["providers"])
+
+        result = []
+        for provider_id in sorted(candidate_ids):
+            provider = index["providers"].get(provider_id)
+            if not isinstance(provider, dict):
+                continue
+            result.append(provider)
+            if len(result) >= limit:
+                break
+
+        return result
 
     def search_active_packages(
         self,
@@ -1125,6 +1337,144 @@ class Handler(BaseHTTPRequestHandler):
                         "service": "asmory-registry-write",
                         "promotion": True,
                         "active_index": True,
+                        "semantic_index": True,
+                    },
+                )
+                return
+
+
+            if path == "/api/v1/semantic/providers":
+                parsed = urlsplit(self.path)
+                params = parse_qs(parsed.query, keep_blank_values=False)
+
+                def semantic_one(name: str) -> str | None:
+                    values = params.get(name)
+                    if not values:
+                        return None
+                    if len(values) != 1:
+                        raise RegistryError(
+                            400,
+                            f"duplicate query parameter: {name}",
+                        )
+                    return values[0]
+
+                capability = semantic_one("capability")
+                fingerprint = semantic_one("fingerprint")
+                raw_limit = semantic_one("limit") or "100"
+
+                if (
+                    capability is not None
+                    and CAPABILITY_RE.fullmatch(capability) is None
+                ):
+                    raise RegistryError(400, "Capability query invalid")
+
+                if (
+                    fingerprint is not None
+                    and SHA_RE.fullmatch(fingerprint) is None
+                ):
+                    raise RegistryError(
+                        400,
+                        "semantic fingerprint query invalid",
+                    )
+
+                if not raw_limit.isdigit():
+                    raise RegistryError(400, "limit must be an integer")
+
+                limit = int(raw_limit)
+                if not 1 <= limit <= 100:
+                    raise RegistryError(400, "limit must be in [1, 100]")
+
+                facets = []
+                for raw_facet in params.get("facet", []):
+                    if len(raw_facet) > 2048 or "=" not in raw_facet:
+                        raise RegistryError(
+                            400,
+                            "Facet query must be path=<canonical JSON>",
+                        )
+
+                    path_text, raw_value = raw_facet.split("=", 1)
+                    if FACET_PATH_RE.fullmatch(path_text) is None:
+                        raise RegistryError(400, "Facet path invalid")
+
+                    try:
+                        value = json.loads(raw_value)
+                    except json.JSONDecodeError as exc:
+                        raise RegistryError(
+                            400,
+                            f"Facet value JSON invalid: {exc}",
+                        ) from exc
+
+                    facets.append(
+                        self.state.semantic_facet_key(path_text, value)
+                    )
+
+                providers = self.state.semantic_provider_candidates(
+                    capability,
+                    fingerprint,
+                    facets,
+                    limit,
+                )
+
+                self.send_json(
+                    200,
+                    {
+                        "registry": "Asmory",
+                        "schema": 1,
+                        "kind": "asmory-semantic-provider-query",
+                        "query": {
+                            "capability": capability,
+                            "fingerprint": fingerprint,
+                            "limit": limit,
+                        },
+                        "prefilter": {
+                            "facets": len(facets),
+                        },
+                        "count": len(providers),
+                        "providers": providers,
+                    },
+                )
+                return
+
+            capability_match = re.fullmatch(
+                r"/api/v1/capabilities/"
+                r"([A-Za-z0-9][A-Za-z0-9._-]{0,255})/providers",
+                path,
+            )
+            if capability_match:
+                parsed = urlsplit(self.path)
+                params = parse_qs(parsed.query, keep_blank_values=False)
+                limit_values = params.get("limit", ["100"])
+                if len(limit_values) != 1:
+                    raise RegistryError(
+                        400,
+                        "duplicate query parameter: limit",
+                    )
+                raw_limit = limit_values[0]
+
+                if not raw_limit.isdigit():
+                    raise RegistryError(400, "limit must be an integer")
+
+                limit = int(raw_limit)
+                if not 1 <= limit <= 100:
+                    raise RegistryError(400, "limit must be in [1, 100]")
+
+                capability = capability_match.group(1)
+                providers = self.state.semantic_provider_candidates(
+                    capability,
+                    None,
+                    [],
+                    limit,
+                )
+
+                self.send_json(
+                    200,
+                    {
+                        "registry": "Asmory",
+                        "schema": 1,
+                        "kind": "asmory-capability-providers",
+                        "capability": capability,
+                        "count": len(providers),
+                        "providers": providers,
                     },
                 )
                 return
@@ -1443,9 +1793,14 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 record = self.state.derive_active_release(staged, owner)
                 atomic_write(active_path, canonical_json(record), 0o444)
-                self.state.rebuild_active_index()
                 state = "promoted"
                 status = 201
+
+            # Both indexes are fully derived from immutable active Releases.
+            # Rebuild on reused promotion too, so a retry repairs any previous
+            # index-write failure without changing Release identity.
+            self.state.rebuild_active_index()
+            self.state.rebuild_semantic_index()
 
         self.send_json(
             status,

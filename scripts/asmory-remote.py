@@ -25,6 +25,32 @@ BASELINE_ORDER = {
 MAX_RESPONSE = 4 * 1024 * 1024
 
 
+
+SEMANTIC_REMOTE_COMMANDS = {
+    "providers",
+    "match-profile",
+    "add-profile",
+}
+
+
+def delegate_semantic_command() -> int | None:
+    if len(sys.argv) < 2 or sys.argv[1] not in SEMANTIC_REMOTE_COMMANDS:
+        return None
+
+    try:
+        proc = subprocess.run(
+            ["asmory-semantic-resolver", *sys.argv[1:]]
+        )
+    except OSError as exc:
+        print(
+            f"remote: semantic resolver backend unavailable: {exc}",
+            file=sys.stderr,
+        )
+        return 8
+
+    return proc.returncode
+
+
 class RemoteError(RuntimeError):
     pass
 
@@ -477,6 +503,10 @@ def command_add(package: str) -> int:
 
 
 def main() -> int:
+    delegated = delegate_semantic_command()
+    if delegated is not None:
+        return delegated
+
     parser = argparse.ArgumentParser(prog="asmory-remote")
     sub = parser.add_subparsers(dest="command", required=True)
 

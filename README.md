@@ -407,6 +407,28 @@ pipeline.
 
 See [`spec/REMOTE_REGISTRY_CLIENT.md`](spec/REMOTE_REGISTRY_CLIENT.md).
 
+## Semantic Provider resolution
+
+Asmory can now discover independently published active Packages by Capability
+and resolve them against a local Semantic Profile:
+
+```bash
+asmory remote providers math.dot.f32
+asmory remote match-profile ./profiles/core-v1.toml
+asmory remote add-profile ./profiles/core-v1.toml
+```
+
+The Registry uses persistent Capability/fingerprint/Facet inverted indexes only
+to narrow candidates. Final acceptance still runs directional Semantic Facet
+matching and then hard Machine Contract filtering.
+
+`add-profile` installs automatically only when exactly one Provider is
+compatible. Multiple compatible Providers are reported as ambiguous until an
+explicit Evidence/trust ranking policy exists.
+
+See
+[`spec/SEMANTIC_PROVIDER_RESOLUTION.md`](spec/SEMANTIC_PROVIDER_RESOLUTION.md).
+
 ## Package model
 
 A software version can contain several machine Variants:

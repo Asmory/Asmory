@@ -185,3 +185,21 @@ final selection
 ```
 
 This makes simple defaults compatible with expert-level auditability.
+
+## Executable remote Provider pipeline
+
+Draft 0.1 now executes the first Capability/Profile branch of the resolution
+model:
+
+```text
+Profile
+  -> canonical Facets
+  -> Capability + exact Facet indexes
+  -> arbitrary active Provider candidates
+  -> directional semantic matching
+  -> Machine Contract filtering
+  -> unique Provider install or ambiguity failure
+```
+
+Performance Evidence does not yet rank multiple accepted Providers. The
+resolver therefore fails rather than inventing a winner.

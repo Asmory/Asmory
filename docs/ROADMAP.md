@@ -109,8 +109,8 @@
 - [x] Capability and Profile Registry resources
 - [x] compositional conformance coverage metadata
 - [x] CLI `asmory semantics` / `asmory match`
-- [ ] arbitrary remote Provider candidate index
-- [ ] resolver Facet inverted indexes
+- [x] arbitrary remote Provider candidate index
+- [x] resolver Facet inverted indexes
 - [ ] namespaced extension Facets
 
 ## M3.5 — Evidence loop

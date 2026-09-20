@@ -33,7 +33,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory remote <search|info|versions|resolve|add> [package]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory remote <search|info|versions|resolve|add|providers|match-profile|add-profile> [arg]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -2056,7 +2056,7 @@ exit_process:
 remote_backend_msg:
     .asciz "asmory remote: remote Registry client unavailable\n"
 remote_usage_msg:
-    .asciz "asmory remote: usage: asmory remote <search|info|versions|resolve|add> [package]\n"
+    .asciz "asmory remote: usage: asmory remote <search|info|versions|resolve|add|providers|match-profile|add-profile> [arg]\n"
 remote_shell_cmd:
     .asciz "exec asmory-remote \"$@\""
 remote_search_shell_cmd:

@@ -123,3 +123,17 @@ restore / patch / vendor / fork
 ```
 
 A remote Registry outage does not prevent local status or cache-backed restore.
+
+## Semantic Provider discovery
+
+The remote client also exposes Capability/Profile resolution:
+
+```bash
+asmory remote providers <capability>
+asmory remote match-profile <profile.toml>
+asmory remote add-profile <profile.toml>
+```
+
+Candidate discovery comes from the active semantic Provider index. Exact
+interface Facets are server-side prefilters; the full directional Facet matcher
+remains the compatibility authority.
