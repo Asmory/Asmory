@@ -54,3 +54,16 @@ GitHub Pages theming is implemented in:
 site/style.css
 site/theme.js
 ```
+
+## Light-theme contrast policy
+
+Asmory follows a stricter contrast rule for the light theme:
+
+- ordinary text on light surfaces always uses dark semantic colors;
+- secondary text uses graphite gray rather than pale gray;
+- light foreground colors are only allowed on deliberately dark surfaces;
+- terminals remain dark in both themes for stable syntax/terminal contrast;
+- bronze primary buttons explicitly pair a dark-enough surface with light text.
+
+This prevents dark-theme hardcoded foreground colors from leaking onto light
+surfaces.

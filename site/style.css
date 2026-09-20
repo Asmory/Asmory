@@ -87,3 +87,86 @@ h1{font-size:clamp(52px,9vw,102px);line-height:.92;letter-spacing:-.07em;margin:
 .flow b{display:block;color:var(--accent);margin-bottom:5px}
 footer{margin-top:100px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--muted);gap:20px;flex-wrap:wrap}
 @media(max-width:800px){.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.hero{padding-top:72px}.navlinks .hide{display:none}}
+
+/* ASMORY_PAGES_LIGHT_CONTRAST_V2 */
+
+:root[data-theme="light"]{
+  --text:#171c22;
+  --muted:#525d68;
+  --accent:#8f5b00;
+  --accent-strong:#704600;
+  --line:#d3ccbf;
+}
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .brand,
+:root[data-theme="light"] .chip,
+:root[data-theme="light"] .theme-toggle,
+:root[data-theme="light"] .btn.alt,
+:root[data-theme="light"] .card h3,
+:root[data-theme="light"] .flow div{
+  color:var(--text);
+}
+
+:root[data-theme="light"] .lead,
+:root[data-theme="light"] .card p,
+:root[data-theme="light"] .section>p,
+:root[data-theme="light"] footer{
+  color:var(--muted);
+}
+
+:root[data-theme="light"] .btn:not(.alt){
+  background:#956000;
+  color:#fffdf8;
+}
+
+:root[data-theme="light"] .btn:not(.alt):hover{
+  background:#784c00;
+  color:#fffdf8;
+}
+
+/* Dark terminal is a deliberate contrast island. */
+:root[data-theme="light"] .terminal,
+:root[data-theme="light"] .terminal pre{
+  color:#eef2f6;
+}
+
+:root[data-theme="light"] .terminal .gold{color:#f2b84b}
+:root[data-theme="light"] .terminal .ok{color:#72dca3}
+
+@media(prefers-color-scheme:light){
+  :root:not([data-theme]){
+    --text:#171c22;
+    --muted:#525d68;
+    --accent:#8f5b00;
+    --accent-strong:#704600;
+    --line:#d3ccbf;
+  }
+
+  :root:not([data-theme]) body,
+  :root:not([data-theme]) .brand,
+  :root:not([data-theme]) .chip,
+  :root:not([data-theme]) .theme-toggle,
+  :root:not([data-theme]) .btn.alt,
+  :root:not([data-theme]) .card h3,
+  :root:not([data-theme]) .flow div{
+    color:var(--text);
+  }
+
+  :root:not([data-theme]) .lead,
+  :root:not([data-theme]) .card p,
+  :root:not([data-theme]) .section>p,
+  :root:not([data-theme]) footer{
+    color:var(--muted);
+  }
+
+  :root:not([data-theme]) .btn:not(.alt){
+    background:#956000;
+    color:#fffdf8;
+  }
+
+  :root:not([data-theme]) .terminal,
+  :root:not([data-theme]) .terminal pre{
+    color:#eef2f6;
+  }
+}
