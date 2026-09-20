@@ -1,0 +1,37 @@
+schema = 1
+
+[profile]
+id = "asmory/simd-dot-core"
+version = "1.0.0"
+publisher = "Asmory"
+capability = "math.dot.f32"
+status = "experimental"
+
+[profile.lineage]
+derived_from = []
+supersedes = []
+
+[semantics.interface]
+shape = "dot-f32-v1"
+logical_export = "dot_f32"
+calling_convention = "sysv64"
+
+[semantics.requires.memory]
+alignment_min_bytes = 1
+inputs_readable = true
+
+[semantics.guarantees.memory]
+inputs_written = false
+out_of_bounds_access = false
+
+[semantics.guarantees.numeric]
+mode = "tolerance"
+absolute_error_max = 0.000001
+relative_error_max = 0.00001
+bit_exact = false
+
+[semantics.guarantees.determinism]
+level = "same-machine"
+
+[semantics.guarantees.side_effects]
+allowed = []

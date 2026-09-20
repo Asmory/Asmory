@@ -29,6 +29,94 @@ The old MVP endpoints remain temporary compatibility aliases:
 /download/simd-dot-0.1.0.tar.gz
 ```
 
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
+
+Semantic discovery resources:
+
+```http
+GET /api/v1/capabilities/{capability}
+GET /api/v1/profiles/{namespace}/{profile}/{version}
+```
+
+Capabilities are discovery indexes and do not imply semantic authority.
+Profiles expand to canonical Semantic Facets before matching.
+
 ## Planned write API
 
 Write operations require authentication and are not implemented yet.

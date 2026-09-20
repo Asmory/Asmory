@@ -41,6 +41,33 @@ resolver ranking policy
 `asmory explain` also states when selection falls back to Variant stability
 because comparable accepted Evidence is absent.
 
+## Automatic performance power session
+
+`simd-dot` is the first reference package to adopt managed benchmark power
+policy.
+
+`make optimize-simd-dot` now:
+
+```text
+save current host policy
+→ switch supported controls to performance
+→ verify
+→ measure
+→ restore the original policy
+```
+
+Only a host that exposes no supported controllable power-policy interface may
+use compatibility fallback. If an interface exists but switching fails, the
+benchmark fails instead of silently downgrading.
+
+Use:
+
+```bash
+make perf-power-status
+```
+
+to inspect the host before measurement.
+
 ## Local optimization loop
 
 ```bash

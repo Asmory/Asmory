@@ -86,6 +86,18 @@ asset_release_json_end:
 asset_evidence_json:
     .incbin "build/registry-data/simd-dot-evidence.json"
 asset_evidence_json_end:
+asset_semantics_json:
+    .incbin "build/registry-data/simd-dot-semantics.json"
+asset_semantics_json_end:
+asset_capability_json:
+    .incbin "build/registry-data/capability-math-dot-f32.json"
+asset_capability_json_end:
+asset_profile_core_json:
+    .incbin "build/registry-data/profile-simd-dot-core-v1.json"
+asset_profile_core_json_end:
+asset_profile_strict_json:
+    .incbin "build/registry-data/profile-simd-dot-strict-v1.json"
+asset_profile_strict_json_end:
 asset_download:
     .incbin "build/packages/simd-dot-0.1.0.tar.gz"
 asset_download_end:
@@ -93,6 +105,14 @@ not_found_html:
     .ascii "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>404 · Asmory</title><style>body{margin:0;background:#090b0f;color:#d9dfe7;font:16px ui-monospace,monospace;display:grid;place-items:center;min-height:100vh}main{border:1px solid #29303a;border-radius:12px;padding:28px 32px;background:#0e1218}b,a{color:#f2b84b}</style></head><body><main><b>404</b> · symbol not found<br><br><a href='/'>return to Asmory</a></main></body></html>"
 not_found_html_end:
 
+pat_semantics_api: .ascii "GET /api/v1/packages/simd-dot/0.1.0/semantics "
+pat_semantics_api_end:
+pat_capability_api: .ascii "GET /api/v1/capabilities/math.dot.f32 "
+pat_capability_api_end:
+pat_profile_core_api: .ascii "GET /api/v1/profiles/asmory/simd-dot-core/1.0.0 "
+pat_profile_core_api_end:
+pat_profile_strict_api: .ascii "GET /api/v1/profiles/asmory/simd-dot-strict/1.0.0 "
+pat_profile_strict_api_end:
 pat_evidence_api: .ascii "GET /api/v1/packages/simd-dot/0.1.0/evidence "
 pat_evidence_api_end:
 pat_release_download: .ascii "GET /api/v1/packages/simd-dot/0.1.0/download "
@@ -232,6 +252,34 @@ accept_loop:
     syscall
     test rax, rax
     jle close_client
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_semantics_api]
+    mov rcx, pat_semantics_api_end - pat_semantics_api
+    call prefix_eq
+    test eax, eax
+    jnz route_semantics_api
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_capability_api]
+    mov rcx, pat_capability_api_end - pat_capability_api
+    call prefix_eq
+    test eax, eax
+    jnz route_capability_api
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_profile_core_api]
+    mov rcx, pat_profile_core_api_end - pat_profile_core_api
+    call prefix_eq
+    test eax, eax
+    jnz route_profile_core_api
+
+    lea rsi, [rip + request_buf]
+    lea rdi, [rip + pat_profile_strict_api]
+    mov rcx, pat_profile_strict_api_end - pat_profile_strict_api
+    call prefix_eq
+    test eax, eax
+    jnz route_profile_strict_api
 
     lea rsi, [rip + request_buf]
     lea rdi, [rip + pat_evidence_api]
@@ -418,6 +466,42 @@ route_versions_api:
     mov rdx, hdr_json_end - hdr_json
     lea rcx, [rip + asset_versions_json]
     mov r8, asset_versions_json_end - asset_versions_json
+    call send_response
+    jmp close_client
+
+route_semantics_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_semantics_json]
+    mov r8, asset_semantics_json_end - asset_semantics_json
+    call send_response
+    jmp close_client
+
+route_capability_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_capability_json]
+    mov r8, asset_capability_json_end - asset_capability_json
+    call send_response
+    jmp close_client
+
+route_profile_core_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_profile_core_json]
+    mov r8, asset_profile_core_json_end - asset_profile_core_json
+    call send_response
+    jmp close_client
+
+route_profile_strict_api:
+    mov rdi, r13
+    lea rsi, [rip + hdr_json]
+    mov rdx, hdr_json_end - hdr_json
+    lea rcx, [rip + asset_profile_strict_json]
+    mov r8, asset_profile_strict_json_end - asset_profile_strict_json
     call send_response
     jmp close_client
 

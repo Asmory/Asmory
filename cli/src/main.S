@@ -9,6 +9,8 @@ cmd_resolve:    .asciz "resolve"
 cmd_explain:    .asciz "explain"
 cmd_audit:      .asciz "audit"
 cmd_evidence:   .asciz "evidence"
+cmd_semantics:  .asciz "semantics"
+cmd_match:      .asciz "match"
 cmd_vflag:      .asciz "--version"
 cmd_hflag:      .asciz "--help"
 pkg_simd_dot:   .asciz "simd-dot"
@@ -16,7 +18,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -27,6 +29,9 @@ missing_resolve_msg: .asciz "asmory resolve: package name required\n"
 missing_explain_msg: .asciz "asmory explain: package name required\n"
 missing_audit_msg:   .asciz "asmory audit: package name required\n"
 missing_evidence_msg:.asciz "asmory evidence: package name required\n"
+missing_semantics_msg:.asciz "asmory semantics: package name required\n"
+missing_match_msg:    .asciz "asmory match: package and profile required\n"
+unknown_profile_msg:  .asciz "asmory match: profile not in bootstrap semantic index\n"
 
 search_msg:
 .asciz "bootstrap index\n\nNAME       VERSION  TARGET                         DESCRIPTION\nsimd-dot   0.1.0    x86_64 / AVX2 + FMA / SysV64  AVX2/FMA f32 dot product\n"
@@ -40,6 +45,19 @@ info_msg:
 res_title:          .asciz "Resolved dependency\n\n"
 res_explain_title:  .asciz "Resolution explanation\n\n"
 res_audit_title:    .asciz "Artifact and review status\n\n"
+semantic_title:     .asciz "Semantic identity\n\n"
+semantic_match_title:.asciz "Semantic match\n\n"
+semantic_lab_fp:     .asciz "  fingerprint  "
+semantic_lab_iface:  .asciz "  interface    "
+semantic_lab_align:  .asciz "  requires alignment  "
+semantic_lab_abs:    .asciz "  abs error <= "
+semantic_lab_rel:    .asciz "  rel error <= "
+semantic_lab_det:    .asciz "  determinism  "
+semantic_lab_facets: .asciz "  facets       source of truth\n"
+semantic_lab_result: .asciz "  result       "
+semantic_lab_reason: .asciz "  reason       "
+semantic_lab_request:.asciz "  request      "
+semantic_lab_endpoint:.asciz "  endpoint     "
 perf_title:         .asciz "Performance Evidence\n\n"
 perf_head:          .asciz "Performance\n"
 perf_lab_benchmark: .asciz "  benchmark    "
@@ -169,6 +187,18 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_evidence
+
+    mov %r13, %rdi
+    lea cmd_semantics(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_semantics
+
+    mov %r13, %rdi
+    lea cmd_match(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_match
 
     mov %r13, %rdi
     lea cmd_info(%rip), %rsi
@@ -388,6 +418,9 @@ _start:
     lea res_lab_profile(%rip), %rdi
     lea registry_profile(%rip), %rsi
     call print_kv
+    lea semantic_lab_fp(%rip), %rdi
+    lea registry_semantic_fingerprint(%rip), %rsi
+    call print_kv
 
     lea res_candidates_head(%rip), %rdi
     call print_cstr
@@ -448,6 +481,120 @@ _start:
 
 .missing_explain:
     lea missing_explain_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_semantics:
+    cmp $3, %r12
+    jb .missing_semantics
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    lea semantic_title(%rip), %rdi
+    call print_cstr
+    lea res_lab_capability(%rip), %rdi
+    lea registry_capability(%rip), %rsi
+    call print_kv
+    lea res_lab_profile(%rip), %rdi
+    lea registry_profile(%rip), %rsi
+    call print_kv
+    lea res_lab_provider(%rip), %rdi
+    lea registry_provider(%rip), %rsi
+    call print_kv
+    lea semantic_lab_fp(%rip), %rdi
+    lea registry_semantic_fingerprint(%rip), %rsi
+    call print_kv
+    lea semantic_lab_iface(%rip), %rdi
+    lea registry_semantic_interface(%rip), %rsi
+    call print_kv
+    lea semantic_lab_align(%rip), %rdi
+    lea registry_semantic_alignment(%rip), %rsi
+    call print_kv
+    lea semantic_lab_abs(%rip), %rdi
+    lea registry_semantic_abs_error(%rip), %rsi
+    call print_kv
+    lea semantic_lab_rel(%rip), %rdi
+    lea registry_semantic_rel_error(%rip), %rsi
+    call print_kv
+    lea semantic_lab_det(%rip), %rdi
+    lea registry_semantic_determinism(%rip), %rsi
+    call print_kv
+    lea semantic_lab_facets(%rip), %rdi
+    call print_cstr
+    lea semantic_lab_endpoint(%rip), %rdi
+    lea registry_semantic_endpoint(%rip), %rsi
+    call print_kv
+    xor %edi, %edi
+    jmp exit_process
+
+.missing_semantics:
+    lea missing_semantics_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_match:
+    cmp $4, %r12
+    jb .missing_match
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    mov 32(%rsp), %rdi
+    lea registry_semantic_core_profile(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .match_core
+
+    mov 32(%rsp), %rdi
+    lea registry_semantic_strict_profile(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .match_strict
+
+    lea unknown_profile_msg(%rip), %rdi
+    call print_cstr
+    mov $3, %edi
+    jmp exit_process
+
+.match_core:
+    lea semantic_match_title(%rip), %rdi
+    call print_cstr
+    lea semantic_lab_request(%rip), %rdi
+    lea registry_semantic_core_profile(%rip), %rsi
+    call print_kv
+    lea semantic_lab_result(%rip), %rdi
+    lea registry_semantic_core_result(%rip), %rsi
+    call print_kv
+    lea semantic_lab_fp(%rip), %rdi
+    lea registry_semantic_fingerprint(%rip), %rsi
+    call print_kv
+    xor %edi, %edi
+    jmp exit_process
+
+.match_strict:
+    lea semantic_match_title(%rip), %rdi
+    call print_cstr
+    lea semantic_lab_request(%rip), %rdi
+    lea registry_semantic_strict_profile(%rip), %rsi
+    call print_kv
+    lea semantic_lab_result(%rip), %rdi
+    lea registry_semantic_strict_result(%rip), %rsi
+    call print_kv
+    lea semantic_lab_reason(%rip), %rdi
+    lea registry_semantic_strict_reason(%rip), %rsi
+    call print_kv
+    mov $5, %edi
+    jmp exit_process
+
+.missing_match:
+    lea missing_match_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

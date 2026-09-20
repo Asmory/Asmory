@@ -48,6 +48,20 @@
 - [ ] authenticated publish/write API
 - [ ] server-side search index
 
+## M2.5 — Semantic Type System MVP
+
+- [x] canonical Semantic Facet document
+- [x] SHA-256 semantic fingerprint
+- [x] directional requirements / guarantees matcher
+- [x] exact / minimum / maximum / contains / subset relations
+- [x] Profile expansion and compatibility-island example
+- [x] Capability and Profile Registry resources
+- [x] compositional conformance coverage metadata
+- [x] CLI `asmory semantics` / `asmory match`
+- [ ] arbitrary remote Provider candidate index
+- [ ] resolver Facet inverted indexes
+- [ ] namespaced extension Facets
+
 ## M3.5 — Evidence loop
 
 - [x] Performance Evidence API for exact Release Artifacts

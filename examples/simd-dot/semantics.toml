@@ -1,0 +1,28 @@
+schema = 1
+capability = "math.dot.f32"
+profile = "asmory/simd-dot-core@1.0.0"
+
+[interface]
+shape = "dot-f32-v1"
+logical_export = "dot_f32"
+calling_convention = "sysv64"
+
+[requires.memory]
+alignment_min_bytes = 1
+inputs_readable = true
+
+[guarantees.memory]
+inputs_written = false
+out_of_bounds_access = false
+
+[guarantees.numeric]
+mode = "tolerance"
+absolute_error_max = 0.000001
+relative_error_max = 0.00001
+bit_exact = false
+
+[guarantees.determinism]
+level = "same-machine"
+
+[guarantees.side_effects]
+allowed = []

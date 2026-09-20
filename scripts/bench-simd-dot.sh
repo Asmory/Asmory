@@ -21,48 +21,38 @@ trap 'rm -rf "$tmp"' EXIT
 runner=("$BIN")
 affinity="unbound"
 
-# Do not parse `taskset -pc $$` human-readable output here.
-# It is localized and may contain the PID before the CPU list.
-#
-# /proc/self/status exposes the kernel's actual cpuset restriction in a stable
-# machine-oriented field:
-#
-#   Cpus_allowed_list:  0-11,16-23
-#
-# Pick the first allowed logical CPU. If pinning is unavailable or rejected,
-# keep the benchmark runnable and record it as unbound.
 if command -v taskset >/dev/null 2>&1 && [[ -r /proc/self/status ]]; then
-  allowed="$(
-    awk '/^Cpus_allowed_list:/ {
-      sub(/^[^:]*:[[:space:]]*/, "", $0)
-      print
-      exit
-    }' /proc/self/status
-  )"
-
+  allowed="$(awk '/^Cpus_allowed_list:/{sub(/^[^:]*:[[:space:]]*/, "", $0);print;exit}' /proc/self/status)"
   first_range="${allowed%%,*}"
   cpu="${first_range%%-*}"
-
-  if [[ "$cpu" =~ ^[0-9]+$ ]]; then
-    if taskset -c "$cpu" true >/dev/null 2>&1; then
-      runner=(taskset -c "$cpu" "$BIN")
-      affinity="cpu:$cpu"
-    else
-      echo "warning: CPU $cpu is listed as allowed but taskset rejected pinning; continuing unbound" >&2
-    fi
+  if [[ "$cpu" =~ ^[0-9]+$ ]] && taskset -c "$cpu" true >/dev/null 2>&1; then
+    runner=(taskset -c "$cpu" "$BIN")
+    affinity="cpu:$cpu"
   fi
 fi
+
+if [[ "${ASMORY_POWER_SESSION_ACTIVE:-0}" != "1" ]]; then
+  [[ "$affinity" != "unbound" ]] || {
+    echo "benchmark contract requires single-cpu affinity" >&2
+    exit 3
+  }
+  bench_cpu="${affinity#cpu:}"
+  exec ./scripts/performance-power-session.sh run --cpu "$bench_cpu" -- \
+    env ASMORY_POWER_SESSION_ACTIVE=1 "$0" "$@"
+fi
+
+power_json="${ASMORY_POWER_SESSION_JSON:?power session metadata missing}"
 
 echo "Asmory Performance Evidence"
 echo "  benchmark: simd-dot/dot-f32-v1"
 echo "  samples:   $SAMPLES"
 echo "  affinity:  $affinity"
+echo "  power:     managed session"
 echo
 
 for ((i=1; i<=SAMPLES; i++)); do
   "${runner[@]}" >"$tmp/$i.txt"
   grep -q '^correctness=pass$' "$tmp/$i.txt"
-
   printf '  sample %02d/%02d  %s ns\n' \
     "$i" "$SAMPLES" \
     "$(awk -F= '$1=="simd_total_ns"{print $2}' "$tmp/$i.txt")"
@@ -98,11 +88,10 @@ export EVIDENCE_KERNEL="$kernel"
 export EVIDENCE_GOVERNOR="$governor"
 export EVIDENCE_ARTIFACT_SHA="$artifact_sha"
 export EVIDENCE_CODE_SIZE="$code_size"
+export EVIDENCE_POWER_SESSION_JSON="$power_json"
 
 python3 - <<'PY'
-import json
-import os
-import statistics
+import json, os, statistics
 from pathlib import Path
 
 tmp = Path(os.environ["EVIDENCE_TMP"])
@@ -118,17 +107,14 @@ def parse(path):
 samples = [parse(p) for p in sorted(tmp.glob("*.txt"), key=lambda p: int(p.stem))]
 if not samples:
     raise SystemExit("no benchmark samples")
-
 if any(s.get("correctness") != "pass" for s in samples):
     raise SystemExit("correctness failed")
 
 scalar = [int(s["scalar_total_ns"]) for s in samples]
 simd = [int(s["simd_total_ns"]) for s in samples]
-
 n = int(samples[0]["n"])
 iterations = int(samples[0]["iterations"])
 warmup = int(samples[0]["warmup"])
-
 median_scalar = int(statistics.median(scalar))
 median_simd = int(statistics.median(simd))
 
@@ -137,15 +123,14 @@ ns_per_element = median_simd / (iterations * n)
 speedup = median_scalar / median_simd
 elements_per_second = iterations * n * 1e9 / median_simd
 gflops = iterations * n * 2 / median_simd
+power = json.loads(os.environ["EVIDENCE_POWER_SESSION_JSON"])
 
 data = {
     "schema": "asmory-performance-evidence-v1",
     "package": "simd-dot",
     "version": "0.1.0",
     "variant": "x86_64-avx2-generic",
-    "artifact": {
-        "sha256": os.environ["EVIDENCE_ARTIFACT_SHA"]
-    },
+    "artifact": {"sha256": os.environ["EVIDENCE_ARTIFACT_SHA"]},
     "benchmark": {
         "id": "simd-dot/dot-f32-v1",
         "primary_metric": "ns_per_element",
@@ -165,7 +150,8 @@ data = {
         "microcode": os.environ["EVIDENCE_MICROCODE"],
         "kernel": os.environ["EVIDENCE_KERNEL"],
         "affinity": os.environ["EVIDENCE_AFFINITY"],
-        "governor": os.environ["EVIDENCE_GOVERNOR"]
+        "governor": os.environ["EVIDENCE_GOVERNOR"],
+        "power_policy": power,
     },
     "measurement": {
         "timer": samples[0]["timer"],
@@ -198,6 +184,8 @@ print(f"  CPU             {data['machine']['cpu_model']}")
 print(f"  ns / element    {ns_per_element:.4f}")
 print(f"  GFLOP/s         {gflops:.3f}")
 print(f"  vs scalar       {speedup:.3f}x")
+print(f"  power managed   {power['managed']}")
+print(f"  fallback        {power['compatibility_fallback']}")
 print(f"  code size       {data['metrics']['code_size_bytes']} B")
 print(f"  evidence        {out}")
 PY

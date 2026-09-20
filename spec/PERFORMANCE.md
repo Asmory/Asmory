@@ -23,6 +23,44 @@ machine metadata requirements and raw-sample retention.
 The Contract itself is content-addressed. Evidence should record its exact
 digest.
 
+## Automatic performance power sessions
+
+The first reference package, `simd-dot`, uses an automatic benchmark power
+session.
+
+Before measurement Asmory performs:
+
+```text
+detect supported host power controls
+        ↓
+save current policy
+        ↓
+switch supported controls to performance
+        ↓
+verify the transition
+        ↓
+run benchmark
+        ↓
+restore the original policy
+```
+
+A supported interface that fails to transition is a hard benchmark error.
+
+Asmory may use compatibility fallback only when the host exposes no supported
+controllable power-policy interface, for example some containers, virtual
+machines or fixed-policy systems.
+
+Fallback measurements remain useful local diagnostics, but are not eligible for
+accepted Registry Performance Evidence under this Contract.
+
+```text
+unsupported host
+    → compatibility fallback
+
+supported host + transition/permission failure
+    → reject
+```
+
 ## Evidence binds to an exact Artifact
 
 Every record must identify:

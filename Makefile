@@ -21,10 +21,14 @@ BENCH_BIN := $(BUILD)/benchmarks/simd-dot-bench
 PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
 RELEASE_JSON := $(BUILD)/registry-data/simd-dot-0.1.0.json
 EVIDENCE_JSON := $(BUILD)/registry-data/simd-dot-evidence.json
+SEMANTICS_JSON := $(BUILD)/registry-data/simd-dot-semantics.json
+CAPABILITY_JSON := $(BUILD)/registry-data/capability-math-dot-f32.json
+PROFILE_CORE_JSON := $(BUILD)/registry-data/profile-simd-dot-core-v1.json
+PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index run check smoke cli-smoke dev clean install-user perf-build perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
@@ -32,8 +36,11 @@ registry: $(REGISTRY_BIN)
 cli: $(CLI_BIN)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
-registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON)
+registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
 evidence-index: $(EVIDENCE_JSON)
+semantic-index: $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
+semantic-check: semantic-index
+	./scripts/check-semantic-matching.sh
 
 $(BUILD)/registry $(BUILD)/cli $(BUILD)/generated $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance $(BUILD)/conformance/simd-dot:
 	mkdir -p $@
@@ -47,15 +54,23 @@ $(RELEASE_JSON): registry/data/simd-dot-release-0.1.0.json.in $(PACKAGE_ARCHIVE)
 $(EVIDENCE_JSON): $(PACKAGE_ARCHIVE) examples/simd-dot/performance.toml scripts/render-evidence-index.sh | $(BUILD)/registry-data
 	./scripts/render-evidence-index.sh $(PACKAGE_ARCHIVE) examples/simd-dot/performance.toml $@
 
+$(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON) &: examples/simd-dot/semantics.toml examples/simd-dot/profiles/core-v1.toml examples/simd-dot/profiles/strict-v1.toml examples/simd-dot/conformance/suite.toml scripts/semantic_model.py scripts/render-semantic-index.sh | $(BUILD)/registry-data
+	./scripts/render-semantic-index.sh \
+	  examples/simd-dot/semantics.toml \
+	  examples/simd-dot/profiles/core-v1.toml \
+	  examples/simd-dot/profiles/strict-v1.toml \
+	  examples/simd-dot/conformance/suite.toml \
+	  $(BUILD)/registry-data
 
-$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JSON) $(EVIDENCE_JSON) | $(BUILD)/registry
+
+$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON) | $(BUILD)/registry
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(REGISTRY_BIN): $(REGISTRY_OBJ)
 	$(LD) $(LDFLAGS) $< -o $@
 
-$(CLI_REGISTRY_INC): $(RELEASE_JSON) $(EVIDENCE_JSON) scripts/render-cli-registry-inc.sh | $(BUILD)/generated
-	./scripts/render-cli-registry-inc.sh $(RELEASE_JSON) $(EVIDENCE_JSON) $@
+$(CLI_REGISTRY_INC): $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) scripts/render-cli-registry-inc.sh | $(BUILD)/generated
+	./scripts/render-cli-registry-inc.sh $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $@
 
 $(CLI_OBJ): cli/src/main.S $(CLI_REGISTRY_INC) | $(BUILD)/cli
 	$(AS) $(ASFLAGS) -I. $< -o $@
@@ -74,6 +89,9 @@ $(BENCH_BIN): $(BENCH_OBJ) $(EXAMPLE_OBJ)
 
 perf-build: $(BENCH_BIN)
 
+perf-power-status:
+	./scripts/performance-power-session.sh status
+
 perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 	./scripts/bench-simd-dot.sh
 
@@ -86,7 +104,7 @@ install-user: $(CLI_BIN)
 
 dev: clean all check smoke cli-smoke
 
-check: all contract-check
+check: all contract-check semantic-check
 	@echo '== registry binary =='
 	@file $(REGISTRY_BIN)
 	@echo 'bytes:'

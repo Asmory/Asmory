@@ -19,6 +19,13 @@ iterations = 20000
 affinity = "single-cpu"
 raw_samples = true
 
+[measurement.power]
+policy = "auto-performance"
+required_mode = "performance"
+restore_after_measurement = true
+fallback = "unsupported-host-only"
+supported_transition_failure = "reject"
+
 [evidence]
 machine_profile = true
 artifact_sha256 = true

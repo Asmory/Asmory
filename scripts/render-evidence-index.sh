@@ -36,6 +36,12 @@ data = {
         "primary_metric": cfg["primary_metric"],
         "direction": cfg["direction"],
         "minimum_samples": cfg["minimum_samples"],
+        "power_policy": {
+            "policy": cfg["measurement"]["power"]["policy"],
+            "required_mode": cfg["measurement"]["power"]["required_mode"],
+            "fallback": cfg["measurement"]["power"]["fallback"],
+            "restore_after_measurement": cfg["measurement"]["power"]["restore_after_measurement"],
+        },
     },
     "policy": {
         "cross_machine_ranking": bool(cfg["evidence"]["cross_machine_ranking"]),

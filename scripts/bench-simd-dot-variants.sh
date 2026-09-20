@@ -28,6 +28,18 @@ if command -v taskset >/dev/null 2>&1 && [[ -r /proc/self/status ]]; then
   fi
 fi
 
+if [[ "${ASMORY_POWER_SESSION_ACTIVE:-0}" != "1" ]]; then
+  [[ "$affinity" != "unbound" ]] || {
+    echo "benchmark contract requires single-cpu affinity" >&2
+    exit 3
+  }
+  bench_cpu="${affinity#cpu:}"
+  exec ./scripts/performance-power-session.sh run --cpu "$bench_cpu" -- \
+    env ASMORY_POWER_SESSION_ACTIVE=1 "$0" "$@"
+fi
+
+power_json="${ASMORY_POWER_SESSION_JSON:?power session metadata missing}"
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -38,6 +50,7 @@ echo "  benchmark: simd-dot/dot-f32-v1"
 echo "  samples:   $SAMPLES"
 echo "  affinity:  $affinity"
 echo "  ordering:  alternating AB / BA"
+echo "  power:     managed session"
 echo
 
 for ((i=1; i<=SAMPLES; i++)); do
@@ -69,6 +82,7 @@ export VAR_GOVERNOR="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 export VAR_ARTIFACT_SHA="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
 export VAR_ARTIFACT_SIZE="$(wc -c < "$ARTIFACT" | tr -d '[:space:]')"
 export VAR_CONTRACT_SHA="$(sha256sum "$CONTRACT" | awk '{print $1}')"
+export VAR_POWER_SESSION_JSON="$power_json"
 
 python3 - <<'PY'
 import json, os, statistics
@@ -91,27 +105,24 @@ if any(x.get("correctness") != "pass" for x in rows):
 
 generic = [int(x["generic_total_ns"]) for x in rows]
 acc4 = [int(x["acc4_total_ns"]) for x in rows]
-orders = [x["order"] for x in rows]
-
 a = int(statistics.median(generic))
 b = int(statistics.median(acc4))
 improvement = (a - b) / a * 100.0
 faster = "x86_64-avx2-fma-4acc" if b < a else "x86_64-avx2-generic"
 
-records = []
-for i, row in enumerate(rows, 1):
-    records.append({
-        "sample": i,
-        "order": row["order"],
-        "generic_total_ns": int(row["generic_total_ns"]),
-        "acc4_total_ns": int(row["acc4_total_ns"]),
-    })
+records = [{
+    "sample": i,
+    "order": row["order"],
+    "generic_total_ns": int(row["generic_total_ns"]),
+    "acc4_total_ns": int(row["acc4_total_ns"]),
+} for i, row in enumerate(rows, 1)]
 
 def med(values):
     return int(statistics.median(values)) if values else None
 
 ab = [r for r in records if r["order"] == "ab"]
 ba = [r for r in records if r["order"] == "ba"]
+power = json.loads(os.environ["VAR_POWER_SESSION_JSON"])
 
 data = {
     "schema": "asmory-performance-evidence-v2",
@@ -128,10 +139,7 @@ data = {
         "contract_sha256": os.environ["VAR_CONTRACT_SHA"],
         "primary_metric": "total_ns",
         "direction": "lower",
-        "workload": {
-            "dtype": "f32",
-            "length": int(rows[0]["n"]),
-        },
+        "workload": {"dtype": "f32", "length": int(rows[0]["n"])},
         "protocol": {
             "timer": rows[0]["timer"],
             "warmup": int(rows[0]["warmup"]),
@@ -147,18 +155,12 @@ data = {
         "kernel": os.environ["VAR_KERNEL"],
         "affinity": os.environ["VAR_AFFINITY"],
         "governor": os.environ["VAR_GOVERNOR"],
+        "power_policy": power,
     },
-    "correctness": {
-        "state": "pass",
-        "samples": len(rows),
-    },
+    "correctness": {"state": "pass", "samples": len(rows)},
     "variants": {
-        "x86_64-avx2-generic": {
-            "median_total_ns": a,
-        },
-        "x86_64-avx2-fma-4acc": {
-            "median_total_ns": b,
-        },
+        "x86_64-avx2-generic": {"median_total_ns": a},
+        "x86_64-avx2-fma-4acc": {"median_total_ns": b},
     },
     "order_diagnostics": {
         "ab_samples": len(ab),
@@ -173,6 +175,7 @@ data = {
         "faster_variant_here": faster,
         "four_acc_improvement_percent_here": improvement,
         "eligible_for_global_ranking": False,
+        "power_policy_registry_eligible": bool(power["managed"] and not power["compatibility_fallback"]),
     },
     "raw_samples": records,
 }
@@ -187,9 +190,9 @@ print(f"  generic median      {a/1e6:.3f} ms")
 print(f"  4acc median         {b/1e6:.3f} ms")
 print(f"  4acc improvement    {improvement:+.2f}%")
 print("  faster here         ", faster)
-print("  artifact            ", data["artifact"]["sha256"])
+print("  power managed       ", power["managed"])
+print("  compatibility fb    ", power["compatibility_fallback"])
+print("  artifact             ", data["artifact"]["sha256"])
 print("  contract             ", data["benchmark"]["contract_sha256"])
 print("  evidence             ", out)
-print()
-print("This is a machine-local observation, not a global resolver verdict.")
 PY

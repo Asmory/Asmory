@@ -1,0 +1,39 @@
+schema = 1
+
+[profile]
+id = "asmory/simd-dot-strict"
+version = "1.0.0"
+publisher = "Asmory"
+capability = "math.dot.f32"
+status = "experimental"
+
+[profile.lineage]
+derived_from = ["asmory/simd-dot-core@1.0.0"]
+supersedes = []
+
+[semantics.interface]
+shape = "dot-f32-v1"
+logical_export = "dot_f32"
+calling_convention = "sysv64"
+
+# A strict consumer promises stronger alignment...
+[semantics.guarantees.memory]
+alignment_min_bytes = 32
+inputs_readable = true
+
+# ...and requires a stronger result than the current implementation promises.
+[semantics.requires.memory]
+inputs_written = false
+out_of_bounds_access = false
+
+[semantics.requires.numeric]
+mode = "bit-exact"
+absolute_error_max = 0.0
+relative_error_max = 0.0
+bit_exact = true
+
+[semantics.requires.determinism]
+level = "bit-exact"
+
+[semantics.requires.side_effects]
+allowed = []

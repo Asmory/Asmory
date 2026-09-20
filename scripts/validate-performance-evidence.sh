@@ -31,6 +31,26 @@ assert d["benchmark"]["id"] == cfg["benchmark_id"]
 assert d["benchmark"]["contract_sha256"] == contract_sha
 assert d["correctness"]["state"] == "pass"
 
+power_cfg = cfg["measurement"]["power"]
+power = d["machine"]["power_policy"]
+assert power_cfg["policy"] == "auto-performance"
+assert power_cfg["fallback"] == "unsupported-host-only"
+
+if power["compatibility_fallback"]:
+    assert power["managed"] is False
+    registry_eligible = False
+    power_state = "unsupported-host compatibility fallback"
+else:
+    assert power["managed"] is True
+    if power["profile"] != "unavailable":
+        assert power["profile"] == "performance"
+    if power["governor"] != "unavailable":
+        assert power["governor"] == "performance"
+    if power["epp"] != "unavailable":
+        assert power["epp"] == "performance"
+    registry_eligible = True
+    power_state = "managed performance / verified"
+
 minimum = int(cfg["minimum_samples"])
 assert d["correctness"]["samples"] >= minimum
 assert len(d["raw_samples"]) >= minimum
@@ -49,5 +69,7 @@ print("artifact:", artifact_sha)
 print("contract:", contract_sha)
 print("samples:", len(d["raw_samples"]))
 print("orders:", ",".join(sorted(orders)))
+print("power policy:", power_state)
+print("Registry-eligible power policy:", "yes" if registry_eligible else "no")
 print("global ranking: forbidden by this evidence record")
 PY
