@@ -2,6 +2,7 @@
 cmd_init:       .asciz "init"
 cmd_acquire:    .asciz "acquire"
 cmd_cache:      .asciz "cache"
+cmd_add:        .asciz "add"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -21,7 +22,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -33,6 +34,12 @@ missing_cache_msg:  .asciz "asmory cache: package name required\n"
 cache_backend_msg:  .asciz "asmory cache: bootstrap cache backend unavailable\n"
 cache_shell_cmd:    .asciz "exec asmory-cache \"$@\""
 cache_argv0:        .asciz "asmory-cache"
+missing_add_msg:    .asciz "asmory add: package name required\n"
+add_workspace_msg:  .asciz "asmory add: no initialized workspace; run 'asmory init' first\n"
+add_backend_msg:    .asciz "asmory add: bootstrap installer backend unavailable\n"
+add_incompat_msg:   .asciz "asmory add: no compatible resolved Variant for this host\n"
+add_shell_cmd:      .asciz "exec asmory-add \"$@\""
+add_argv0:          .asciz "asmory-add"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -87,6 +94,8 @@ init_lock_body_end:
 init_ignore_body:
 .ascii "# Exact dependency materializations are reconstructed from asm.lock.\n"
 .ascii "deps/\n"
+.ascii ".staging/\n"
+.ascii "workspace.lock\n"
 init_ignore_body_end:
 
 search_msg:
@@ -200,7 +209,7 @@ avx512_ok:   .byte 0
 baseline_ptr:.quad 0
 envp_ptr:    .quad 0
 .align 8
-acquire_exec_argv: .skip 72
+acquire_exec_argv: .skip 128
 
 .section .text
 .global _start
@@ -230,6 +239,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_cache
+
+    mov %r13, %rdi
+    lea cmd_add(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_add
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -529,6 +544,92 @@ _start:
     lea missing_cache_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
+    jmp exit_process
+
+.do_add:
+    cmp $3, %r12
+    jb .missing_add
+
+    lea init_manifest_path(%rip), %rdi
+    call path_exists
+    test %eax, %eax
+    jz .add_no_workspace
+
+    lea init_lock_path(%rip), %rdi
+    call path_exists
+    test %eax, %eax
+    jz .add_no_workspace
+
+    mov 24(%rsp), %rdi
+    lea registry_pkg_name(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jz .pkg_not_found
+
+    call check_bootstrap_variant
+    test %eax, %eax
+    jz .add_incompatible
+
+    lea acquire_exec_argv(%rip), %r10
+
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea add_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea add_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+
+    lea registry_pkg_name(%rip), %rax
+    mov %rax, 32(%r10)
+    lea registry_version(%rip), %rax
+    mov %rax, 40(%r10)
+    lea registry_capability(%rip), %rax
+    mov %rax, 48(%r10)
+    lea registry_semantic_fingerprint(%rip), %rax
+    mov %rax, 56(%r10)
+    lea registry_profile(%rip), %rax
+    mov %rax, 64(%r10)
+    lea registry_provider(%rip), %rax
+    mov %rax, 72(%r10)
+    lea registry_variant_primary(%rip), %rax
+    mov %rax, 80(%r10)
+    lea registry_artifact_sha256(%rip), %rax
+    mov %rax, 88(%r10)
+    lea registry_review_state(%rip), %rax
+    mov %rax, 96(%r10)
+    lea registry_safety_state(%rip), %rax
+    mov %rax, 104(%r10)
+    movq $0, 112(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea add_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_add:
+    lea missing_add_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.add_no_workspace:
+    lea add_workspace_msg(%rip), %rdi
+    call print_cstr
+    mov $9, %edi
+    jmp exit_process
+
+.add_incompatible:
+    lea add_incompat_msg(%rip), %rdi
+    call print_cstr
+    mov $4, %edi
     jmp exit_process
 
 .do_search:

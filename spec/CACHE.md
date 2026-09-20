@@ -63,11 +63,10 @@ the package is in asm.lock
 the source is materialized in .asmory/deps
 ```
 
-Those are later stages.
+`asmory add` consumes the cache to create project state; cache presence by itself still implies none of those things.
 
 ## No extraction
 
 This stage stores exact archive bytes only.
 
-Archive validation, path/symlink safety, extraction, local working copies and
-Exact/Modified tree state belong to materialization.
+Archive validation, path/symlink safety, extraction and local working copies are implemented by materialization. Exact/Modified tree-state computation remains separate.

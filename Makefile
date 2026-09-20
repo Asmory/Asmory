@@ -10,6 +10,8 @@ CLI_OBJ := $(BUILD)/cli/main.o
 CLI_BIN := $(BUILD)/asmory
 ACQUIRE_HELPER := $(BUILD)/asmory-acquire
 CACHE_HELPER := $(BUILD)/asmory-cache
+ADD_HELPER := $(BUILD)/asmory-add
+MATERIALIZE_HELPER := $(BUILD)/asmory-materialize
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
@@ -30,12 +32,12 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
 registry: $(REGISTRY_BIN)
-cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER)
+cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -88,6 +90,14 @@ $(CACHE_HELPER): scripts/asmory-cache.sh | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
 
+$(ADD_HELPER): scripts/asmory-add.sh | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
+$(MATERIALIZE_HELPER): scripts/asmory-materialize.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -108,11 +118,13 @@ perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
 
-install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER)
+install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER)
 	install -Dm755 $(CLI_BIN) $(HOME)/.local/bin/asmory
 	install -Dm755 $(ACQUIRE_HELPER) $(HOME)/.local/bin/asmory-acquire
 	install -Dm755 $(CACHE_HELPER) $(HOME)/.local/bin/asmory-cache
-	@echo 'installed: $(HOME)/.local/bin/asmory + asmory-acquire + asmory-cache'
+	install -Dm755 $(ADD_HELPER) $(HOME)/.local/bin/asmory-add
+	install -Dm755 $(MATERIALIZE_HELPER) $(HOME)/.local/bin/asmory-materialize
+	@echo 'installed: asmory + acquisition/cache/add/materialize helpers'
 
 dev: clean all check smoke cli-smoke
 
@@ -145,6 +157,9 @@ acquire-smoke: registry cli packages
 
 cache-smoke: registry cli packages
 	./scripts/cache-smoke.sh
+
+add-smoke: registry cli packages
+	./scripts/add-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

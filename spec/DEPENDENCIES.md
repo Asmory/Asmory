@@ -176,6 +176,29 @@ The global cache remains immutable.
 A modified local copy becomes a local derivative and must not be silently
 treated as the original Artifact.
 
+## First executable add pipeline
+
+The first end-to-end implementation lowers:
+
+```bash
+asmory add simd-dot
+```
+
+through:
+
+```text
+resolver identity
+    -> verified cache object
+    -> safe materialization
+    -> asm.toml intent
+    -> asm.lock exact record
+```
+
+The local copy is independent and writable. The cache object is not.
+
+The first MVP accepts one direct leaf dependency so state and reproducibility
+rules remain explicit before multi-dependency editing is added.
+
 ## AI-assisted dependencies
 
 A coding agent should be able to:

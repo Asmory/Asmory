@@ -48,14 +48,14 @@ chose.
 
 ## `.asmory/deps/` — local working materialization
 
-Resolved source will later be materialized here by default.
+Resolved source is materialized here by default by `asmory add`.
 
 The directory is intentionally visible to humans and AI agents but ignored from
 Git while dependencies remain **Exact** and reconstructible from the lockfile.
 
 > **Local-visible by default, Git-tracked when diverged.**
 
-The workspace foundation creates this directory. Artifact acquisition is a separate verified transport step and still does not materialize source here.
+The workspace foundation creates this directory. `asmory add` fills it only after resolution, verified cache acquisition, and safe archive validation.
 
 ## Initialization safety
 
@@ -68,4 +68,4 @@ The workspace foundation creates this directory. Artifact acquisition is a separ
 - is idempotent when both files already exist;
 - refuses a partial state where only one of those files exists.
 
-Acquisition is implemented as a separate stage; cache and materialization remain later stages.
+Acquisition, content-addressed cache, and safe materialization are separate implemented stages. Integrity-state computation remains a later stage.

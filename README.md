@@ -314,6 +314,7 @@ asmory search simd
 asmory info simd-dot
 asmory acquire simd-dot ./simd-dot-0.1.0.tar.gz
 asmory cache simd-dot
+asmory add simd-dot
 asmory --version
 ```
 

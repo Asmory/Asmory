@@ -32,10 +32,10 @@
 - [x] Registry Release JSON -> generated Assembly metadata bridge
 - [ ] remote registry client
 - [x] `asmory init`
-- [ ] `asmory add`
+- [x] `asmory add` first leaf dependency MVP
 - [x] bootstrap target/Variant compatibility resolution
 - [x] project workspace + empty lockfile v1 foundation
-- [ ] resolved dependency records in lockfile
+- [x] resolved dependency records in lockfile v1
 
 ## M2.75 — Local workspace foundation
 
@@ -52,7 +52,10 @@
 - [x] verified cache hits and corruption rejection
 - [x] atomic no-clobber cache publication
 - [x] content-addressed global cache
-- [ ] local materialization
+- [x] safe project-local materialization
+- [x] archive traversal/link/special-file rejection
+- [x] transactional first dependency manifest + lockfile update
+- [x] offline add from verified cache
 - [ ] computed Exact / Modified status
 
 ## M3 — Real index/storage

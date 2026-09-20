@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 3 ]]; then
-  echo "usage: asmory-cache <package> <version> <expected-sha256>" >&2
+print_object=0
+if [[ "$#" -eq 4 && "$4" == "--print-object" ]]; then
+  print_object=1
+elif [[ "$#" -ne 3 ]]; then
+  echo "usage: asmory-cache <package> <version> <expected-sha256> [--print-object]" >&2
   exit 2
 fi
 
@@ -64,13 +67,17 @@ if [[ -e "$object" || -L "$object" ]]; then
     exit 13
   fi
 
-  echo "Cache hit"
-  echo
-  echo "  package      $package"
-  echo "  release      $version"
-  echo "  sha256       $expected"
-  echo "  verification exact"
-  echo "  object       $object"
+  if (( print_object )); then
+    printf '%s\n' "$object"
+  else
+    echo "Cache hit"
+    echo
+    echo "  package      $package"
+    echo "  release      $version"
+    echo "  sha256       $expected"
+    echo "  verification exact"
+    echo "  object       $object"
+  fi
   exit 0
 fi
 
@@ -101,10 +108,14 @@ if ! verify_object "$object"; then
   exit 13
 fi
 
-echo "Cache populated"
-echo
-echo "  package      $package"
-echo "  release      $version"
-echo "  sha256       $expected"
-echo "  verification exact"
-echo "  object       $object"
+if (( print_object )); then
+  printf '%s\n' "$object"
+else
+  echo "Cache populated"
+  echo
+  echo "  package      $package"
+  echo "  release      $version"
+  echo "  sha256       $expected"
+  echo "  verification exact"
+  echo "  object       $object"
+fi
