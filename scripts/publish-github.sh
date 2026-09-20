@@ -20,16 +20,10 @@ echo "===== [2/9] organization ====="
 if ! gh api "orgs/$ORG" >/dev/null 2>&1; then
   echo
   echo "GitHub Organization '$ORG' does not exist or is not accessible."
-  echo "GitHub does not provide a normal 'gh org create' command."
-  echo
   echo "Opening organization creation page..."
-  if command -v xdg-open >/dev/null 2>&1; then
+  command -v xdg-open >/dev/null 2>&1 && \
     xdg-open "https://github.com/account/organizations/new" >/dev/null 2>&1 || true
-  fi
-  echo
-  echo "Create the organization with name: $ORG"
-  echo "Then rerun this same script:"
-  echo "  ./scripts/publish-github.sh"
+  echo "Create organization '$ORG', then rerun this script."
   exit 2
 fi
 
@@ -50,11 +44,10 @@ fi
 
 echo "===== [5/9] repository ====="
 if gh repo view "$REPO" >/dev/null 2>&1; then
-  echo "Repository already exists: $REPO"
   if git remote get-url origin >/dev/null 2>&1; then
-    git remote set-url origin "https://github.com/$REPO.git"
+    git remote set-url origin "git@github.com:$REPO.git"
   else
-    git remote add origin "https://github.com/$REPO.git"
+    git remote add origin "git@github.com:$REPO.git"
   fi
   git push -u origin main
 else
@@ -87,7 +80,6 @@ gh api \
   "names": [
     "assembly",
     "assembly-language",
-    "asm",
     "x86-64",
     "aarch64",
     "riscv",
@@ -111,14 +103,16 @@ gh api \
 JSON
 
 echo "===== [8/9] GitHub Pages ====="
-gh api \
-  --method POST \
-  "repos/$REPO/pages" \
-  -f build_type=workflow \
-  >/dev/null 2>&1 || true
+if gh api "repos/$REPO/pages" >/dev/null 2>&1; then
+  echo "GitHub Pages already enabled."
+else
+  gh api \
+    --method POST \
+    "repos/$REPO/pages" \
+    -f build_type=workflow \
+    >/dev/null
+fi
 
-# Workflows run automatically on the push. These calls are a fallback and
-# are intentionally non-fatal.
 gh workflow run ci.yml --repo "$REPO" >/dev/null 2>&1 || true
 gh workflow run pages.yml --repo "$REPO" >/dev/null 2>&1 || true
 
@@ -127,5 +121,4 @@ echo
 echo "Repository: https://github.com/$REPO"
 echo "Pages:      https://${ORG,,}.github.io/$REPO_NAME/"
 echo
-echo "Recent Actions:"
-gh run list --repo "$REPO" --limit 10 || true
+gh run list --repo "$REPO" --limit 10
