@@ -1,14 +1,34 @@
 # Asmory CLI
 
-Reserved for the future `asmory` package-manager implementation.
+The Asmory CLI is intentionally Assembly-first.
 
-Planned first commands:
+The current Linux x86-64 bootstrap client is a static ELF built with GNU `as`
+and `ld`, with no libc and no language runtime.
+
+## Implemented
 
 ```text
-asmory init
-asmory search
-asmory add
-asmory info
-asmory build
-asmory publish
+asmory target
+asmory search [query]
+asmory info <package>
+asmory --version
+asmory help
 ```
+
+`asmory target` is real host detection. It uses `CPUID` and `XGETBV` to inspect
+CPU capabilities and verify that the operating system enables the extended
+register state required for AVX / AVX-512 before reporting those features as
+usable.
+
+The current `search` and `info` commands use the bootstrap index bundled with
+the CLI. They exist to stabilize the command UX before the network registry
+protocol is wired in.
+
+## Next
+
+- HTTP registry client
+- target negotiation against remote package Variants
+- `asmory add`
+- lockfile
+- source/object cache
+- assembler adapter selection

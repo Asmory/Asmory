@@ -27,14 +27,21 @@ jobs:
           make clean
           make -j"$(nproc)"
 
-      - name: Check
+      - name: Check binaries
         run: make check
 
-      - name: Smoke test
+      - name: Registry smoke test
         run: make smoke
 
-      - name: Inspect binary
+      - name: CLI smoke test
+        run: make cli-smoke
+
+      - name: Host target report
+        run: ./build/asmory target
+
+      - name: ELF inspection
         run: |
-          file build/asmory-registry
-          size build/asmory-registry
+          file build/asmory build/asmory-registry
+          size build/asmory build/asmory-registry
+          readelf -h build/asmory
           readelf -h build/asmory-registry

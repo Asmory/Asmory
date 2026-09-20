@@ -3,52 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Asmory — Assembly Package Registry</title>
-<meta name="description" content="A package registry and ecosystem for reusable Assembly code with explicit ISA and ABI constraints.">
+<title>Asmory — Packages for the instruction level</title>
+<meta name="description" content="Assembly package registry with ISA-aware target and Variant resolution.">
 <style>
-:root{color-scheme:dark;--bg:#090b0f;--panel:#11151b;--line:#252b35;--text:#f3f4f6;--muted:#9aa4b2;--gold:#f5b942}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 70% 0,#252013 0,transparent 35rem),var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{max-width:1120px;margin:auto;padding:72px 24px}nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:90px}
-.logo{font-weight:800;font-size:24px;letter-spacing:-.03em}.logo span{color:var(--gold)}a{color:inherit;text-decoration:none}.github{border:1px solid var(--line);padding:10px 16px;border-radius:10px}
-.hero{max-width:880px}.kicker{color:var(--gold);font-family:monospace;text-transform:uppercase;letter-spacing:.15em}
-h1{font-size:clamp(48px,9vw,96px);line-height:.95;letter-spacing:-.065em;margin:20px 0}.lead{font-size:21px;color:var(--muted);max-width:760px}
-.actions{display:flex;gap:12px;margin:34px 0 70px;flex-wrap:wrap}.button{padding:13px 19px;border-radius:10px;background:var(--gold);color:#16120a;font-weight:750}.button.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:rgba(17,21,27,.82);border:1px solid var(--line);border-radius:16px;padding:24px}.card h3{margin-top:0}.card p{color:var(--muted)}
-code,pre{font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace}pre{background:#07090c;border:1px solid var(--line);border-radius:16px;padding:24px;overflow:auto;margin-top:50px}.gold{color:var(--gold)}
-footer{margin-top:100px;padding-top:30px;border-top:1px solid var(--line);color:var(--muted)}@media(max-width:760px){.grid{grid-template-columns:1fr}nav{margin-bottom:55px}}
+:root{color-scheme:dark;--bg:#080a0e;--panel:#11151b;--panel2:#0d1117;--line:#262d38;--text:#f5f7fa;--muted:#98a3b3;--gold:#f5b942;--gold2:#d9961e;--green:#6fe0a7}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 72% -10%,#302613 0,transparent 33rem),linear-gradient(180deg,#090b0f,var(--bg));color:var(--text);font:16px/1.65 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:inherit;text-decoration:none}main{max-width:1160px;margin:auto;padding:36px 24px 80px}nav{display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-size:25px;font-weight:850;letter-spacing:-.04em}.brand span,.gold{color:var(--gold)}.navlinks{display:flex;gap:10px;align-items:center}.chip{border:1px solid var(--line);background:#0c0f14aa;padding:9px 13px;border-radius:10px;color:var(--muted)}.hero{padding:110px 0 78px;max-width:920px}.kicker{color:var(--gold);font:700 12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase}h1{font-size:clamp(52px,9vw,102px);line-height:.92;letter-spacing:-.07em;margin:18px 0 28px}.lead{font-size:21px;color:var(--muted);max-width:790px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:34px}.btn{background:var(--gold);color:#171108;padding:13px 18px;border-radius:10px;font-weight:800}.btn.alt{background:transparent;color:var(--text);border:1px solid var(--line)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.card{padding:24px;background:linear-gradient(180deg,#12171e,#0d1117);border:1px solid var(--line);border-radius:16px}.card h3{margin:0 0 8px;font-size:17px}.card p{color:var(--muted);margin:0}.section{padding:80px 0 10px}.section h2{font-size:38px;letter-spacing:-.045em;margin:0 0 12px}.section>p{color:var(--muted);max-width:760px}.terminal{margin-top:28px;background:#05070a;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 25px 80px #0008}.termbar{padding:10px 14px;border-bottom:1px solid var(--line);color:#697585;font:12px ui-monospace,monospace}.terminal pre{margin:0;padding:24px;overflow:auto;font:14px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace}.ok{color:var(--green)}.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:28px}.flow div{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:16px;text-align:center;font:13px ui-monospace,monospace}.flow b{display:block;color:var(--gold);margin-bottom:5px}footer{margin-top:100px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--muted);gap:20px;flex-wrap:wrap}@media(max-width:800px){.grid{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.hero{padding-top:72px}.navlinks .hide{display:none}}
 </style>
 </head>
-<body>
-<main>
-<nav>
-  <div class="logo">Asm<span>ory</span></div>
-  <a class="github" href="https://github.com/Asmory/Asmory">GitHub ↗</a>
-</nav>
-<section class="hero">
-<div class="kicker">Assembly package ecosystem</div>
-<h1>Packages for the instruction level.</h1>
-<p class="lead">Asmory is an experimental package registry for reusable Assembly code. Architecture alone is not enough: ISA versions, extensions, ABI, object format and toolchain constraints are first-class package metadata.</p>
-<div class="actions">
-<a class="button" href="https://github.com/Asmory/Asmory">Explore Asmory</a>
-<a class="button secondary" href="https://github.com/Asmory/Asmory/blob/main/CONTRIBUTING.md">Contribute</a>
-</div>
-</section>
-<div class="grid">
-<div class="card"><h3>ISA-aware</h3><p>x86-64-v3, AVX2, FMA, SVE2 and RVV are resolver inputs, not decorative tags.</p></div>
-<div class="card"><h3>Variant-oriented</h3><p>One package version can provide multiple implementations for different machines.</p></div>
-<div class="card"><h3>AI-friendly</h3><p>Machine-readable contracts make low-level libraries easier for humans and coding agents to reuse.</p></div>
-</div>
-<pre><span class="gold">$</span> asmory add simd-dot
+<body><main>
+<nav><div class="brand">Asm<span>ory</span></div><div class="navlinks"><a class="chip hide" href="#cli">CLI</a><a class="chip hide" href="#model">Target model</a><a class="chip" href="https://github.com/Asmory/Asmory">GitHub ↗</a></div></nav>
+<section class="hero"><div class="kicker">Assembly package ecosystem</div><h1>Packages for the instruction level.</h1><p class="lead">Asmory treats ISA versions, CPU extensions, ABI and object format as real dependency-resolution inputs. Reuse machine-level code without erasing the machine contract.</p><div class="actions"><a class="btn" href="https://github.com/Asmory/Asmory">Explore the repository</a><a class="btn alt" href="https://github.com/Asmory/Asmory/blob/main/CONTRIBUTING.md">Contribute</a></div></section>
+<div class="grid"><div class="card"><h3>ISA-aware</h3><p>AVX2, AVX-512, SVE2 and RVV are compatibility constraints, not decorative tags.</p></div><div class="card"><h3>Variant-oriented</h3><p>One package version can carry several machine implementations and let the resolver choose legally.</p></div><div class="card"><h3>Assembly-first</h3><p>The current registry and CLI are static x86-64 ELF programs built with GNU as + ld.</p></div></div>
+<section class="section" id="cli"><div class="kicker">Working CLI</div><h2>Ask the machine first.</h2><p>The bootstrap client reads CPUID and XGETBV directly, including OS support for AVX extended register state.</p><div class="terminal"><div class="termbar">asmory target</div><pre><span class="gold">$</span> ./build/asmory target
 
-resolving target...
-  arch       x86_64
-  abi        sysv64
-  baseline   x86-64-v3
-  features   avx2 fma bmi2
+Asmory host target
 
-selected:
-  simd-dot 0.1.0 / x86_64-avx2-fma</pre>
-<footer>Asmory · Assembly packages with explicit machine contracts.</footer>
-</main>
-</body>
-</html>
+Target
+  arch         x86_64
+  os           linux
+  object       elf64
+  abi          sysv64
+
+ISA
+  baseline     x86-64-v3
+
+  features
+    avx2       <span class="ok">yes</span>
+    fma        <span class="ok">yes</span>
+    bmi2       <span class="ok">yes</span>
+    avx512f    no</pre></div></section>
+<section class="section" id="model"><div class="kicker">Resolver model</div><h2>Architecture is only the first coordinate.</h2><p>A Variant must survive correctness filtering before performance preference is even considered.</p><div class="flow"><div><b>Package</b>simd-dot</div><div><b>Version</b>0.1.0</div><div><b>Variant</b>x86_64-avx2-fma</div><div><b>Target</b>ELF64 / SysV64</div><div><b>Resolver</b>compatible → tuned</div></div></section>
+<footer><span>Asmory · Assembly packages with explicit machine contracts.</span><span>MIT · GitHub Actions · GitHub Pages</span></footer>
+</main></body></html>

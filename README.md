@@ -1,43 +1,115 @@
 # Asmory
 
-> **A package registry and ecosystem for Assembly.**
-
-Publish, discover, resolve and reuse machine-level code with explicit ISA,
-ABI and target constraints.
+> **Packages for the instruction level.**
+>
+> An Assembly package registry and ecosystem with explicit ISA, ABI and target
+> constraints.
 
 [![CI](https://github.com/Asmory/Asmory/actions/workflows/ci.yml/badge.svg)](https://github.com/Asmory/Asmory/actions/workflows/ci.yml)
 [![Pages](https://github.com/Asmory/Asmory/actions/workflows/pages.yml/badge.svg)](https://github.com/Asmory/Asmory/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Why Asmory?
+## The idea
 
-Modern AI-assisted development makes Assembly practical at a scale that was
-previously difficult to maintain manually.
+What if Assembly had package-manager ergonomics comparable to crates.io or
+PyPI without pretending machine differences do not exist?
 
-Asmory explores a simple idea:
-
-**What if Assembly had a package ecosystem comparable to crates.io or PyPI?**
-
-Assembly has one important difference: compatibility cannot stop at `x86_64`
-or `aarch64`.
-
-For Asmory, a package target includes:
+For Asmory, compatibility includes:
 
 ```text
 architecture
-+ ISA baseline
-+ ISA version
++ ISA baseline / version
 + ISA extensions
-+ ABI
-+ calling convention
++ ABI / calling convention
 + object format
 + operating system
-+ assembler requirements
++ assembler/linker constraints
 + optional microarchitecture tuning
 ```
 
-ISA information is therefore not metadata decoration. It participates in
-dependency resolution.
+`x86_64` by itself is not a sufficient target description.
+
+## Working today
+
+The repository already contains two static Linux x86-64 ELF programs written
+in Assembly:
+
+- `asmory-registry` — syscall-only HTTP registry prototype;
+- `asmory` — package-manager CLI bootstrap.
+
+Build everything:
+
+```bash
+make clean && make -j"$(nproc)" && make check && make smoke && make cli-smoke
+```
+
+Inspect the current machine:
+
+```bash
+./build/asmory target
+```
+
+Example output:
+
+```text
+Asmory host target
+
+Target
+  arch         x86_64
+  os           linux
+  object       elf64
+  abi          sysv64
+  cpu_vendor   AuthenticAMD
+
+ISA
+  baseline     x86-64-v3
+
+  features
+    sse2       yes
+    sse4.2     yes
+    avx        yes
+    avx2       yes
+    fma        yes
+    bmi1       yes
+    bmi2       yes
+    avx512f    no
+```
+
+The CLI uses `CPUID` and `XGETBV` directly. AVX-family instructions are only
+reported as usable when the operating system has enabled the required extended
+register state.
+
+## Bootstrap CLI
+
+```bash
+asmory target
+asmory search simd
+asmory info simd-dot
+asmory --version
+```
+
+Install the locally built CLI:
+
+```bash
+make install-user
+```
+
+## Package model
+
+A software version can contain several machine Variants:
+
+```text
+simd-dot 0.1.0
+├── x86_64 / SSE2
+├── x86_64 / AVX2 + FMA
+├── x86_64 / AVX-512
+├── aarch64 / NEON
+├── aarch64 / SVE2
+└── riscv64 / RVV
+```
+
+The package version describes the software release. The Variant describes a
+machine implementation.
 
 ## Example manifest
 
@@ -62,133 +134,75 @@ assembler = "gas"
 min_version = "2.40"
 ```
 
-A package may expose several machine variants:
-
-```text
-simd-dot 0.1.0
-├── x86_64 / SSE2
-├── x86_64 / AVX2 + FMA
-├── x86_64 / AVX-512
-├── aarch64 / NEON
-├── aarch64 / SVE2
-└── riscv64 / RVV
-```
-
-The version describes the software release.
-
-The **Variant** describes the machine implementation.
-
-## Project goals
-
-- Assembly-native package registry
-- machine-readable ISA and ABI contracts
-- strict target compatibility resolution
-- multiple optimized variants per package version
-- linker-assisted dead-code elimination
-- reproducible package manifests
-- package search and publishing
-- host ISA detection
-- future performance-aware variant selection
-- AI-friendly package metadata
-- minimal runtime abstraction
-
-## Repository layout
-
-```text
-registry/   Assembly HTTP registry
-cli/        Asmory command-line client
-spec/       package / ISA / ABI specifications
-examples/   example Assembly packages
-docs/       architecture and roadmap
-site/       GitHub Pages project site
-tests/      integration tests
-scripts/    development tools
-```
-
-## Planned CLI
-
-```bash
-asmory init
-asmory target
-asmory search gemm
-asmory info simd-dot
-asmory add simd-dot
-asmory build
-asmory publish
-```
-
 ## Design principles
 
-### ISA is part of compatibility
+### ISA is resolver input
 
-`x86_64` is not enough information.
+ISA requirements are not search tags. They determine whether a Variant is
+legal to execute.
 
-```text
-x86_64 + SSE2
-x86_64 + AVX2 + FMA
-x86_64 + AVX-512
-x86_64 + AMX
-```
+### Runnable != optimal
 
-are distinct execution requirements.
+Asmory separates correctness compatibility from performance preference. A
+future resolver may choose between several compatible implementations using
+microarchitecture information or benchmark profiles.
 
-### Runnable is not the same as optimal
+### Let the linker collect garbage
 
-Asmory keeps these concepts separate:
-
-```text
-correctness compatibility
-        !=
-performance preference
-```
-
-### Let the linker remove unused code
-
-Assembly packages should favor independently collectable sections:
-
-```asm
-.section .text.foo,"ax",@progbits
-.section .text.bar,"ax",@progbits
-```
-
-allowing linkers to use mechanisms such as:
-
-```bash
-ld --gc-sections
-```
+Packages should expose independently collectable sections where practical, so
+normal linker mechanisms such as `--gc-sections` can eliminate unused code.
 
 ### Machine code + machine-readable contract
 
-Asmory should preserve low-level control without sacrificing reusable package
-boundaries.
+The goal is not to rebuild a high-level language around Assembly. The goal is
+to make low-level code reusable by giving humans and coding agents a precise,
+machine-readable interface and target contract.
+
+## Repository
+
+```text
+registry/   Assembly HTTP registry
+cli/        Assembly package-manager CLI
+docs/       architecture, CLI and roadmap
+spec/       package / ISA / ABI specifications
+examples/   example Assembly packages
+site/       GitHub Pages project site
+org/        Organization profile source
+tests/      integration tests
+scripts/    development / publish / release helpers
+```
+
+## Roadmap
+
+The immediate path is:
+
+```text
+host detection
+    -> remote registry protocol
+    -> Variant compatibility resolver
+    -> asmory add
+    -> lockfile/cache
+    -> build/link pipeline
+    -> signed publishing
+```
+
+See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 
-Asmory is at the stage where architectural discussion is especially valuable.
+Asmory is especially interested in contributors familiar with:
 
-Useful contribution areas include:
-
-- x86 ISA modeling
-- AArch64 feature/version modeling
-- RISC-V extension modeling
-- ABI modeling
-- ELF / COFF / Mach-O integration
-- assembler compatibility
-- package resolver design
-- linker garbage collection
-- CPU feature detection
-- SIMD kernels
-- benchmarking
-- registry protocol design
+- x86/x86-64, AArch64 or RISC-V ISA modeling;
+- SIMD and optimized kernels;
+- SysV AMD64, Win64 and AAPCS64 ABIs;
+- ELF, COFF and Mach-O;
+- GNU as, NASM and LLVM MC;
+- linkers and section garbage collection;
+- host feature detection and dispatch;
+- dependency resolution and package registries;
+- high-performance computing.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Status
-
-Asmory is experimental and under active development.
-
-The current registry server is intentionally implemented in Linux x86-64
-Assembly using direct syscalls.
 
 ## License
 

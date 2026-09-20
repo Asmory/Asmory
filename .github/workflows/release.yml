@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-linux-x86_64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils make curl
+
+      - name: Build and test
+        run: |
+          make clean
+          make -j"$(nproc)"
+          make check
+          make smoke
+          make cli-smoke
+
+      - name: Package release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/asmory-linux-x86_64
+          cp build/asmory dist/asmory-linux-x86_64/
+          cp build/asmory-registry dist/asmory-linux-x86_64/
+          cp README.md LICENSE dist/asmory-linux-x86_64/
+          tar -C dist -czf "dist/asmory-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" asmory-linux-x86_64
+          (cd dist && sha256sum "asmory-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" > SHA256SUMS)
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/asmory-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            dist/SHA256SUMS \
+            --title "Asmory $GITHUB_REF_NAME" \
+            --generate-notes

@@ -9,36 +9,49 @@
 - [x] downloadable example package
 - [x] ISA/ABI/target specification drafts
 
-## M1 — Real index/storage
+## M1 — Public project infrastructure
 
-- package index binary format or compact JSON schema
-- package/version/Variant records
-- content-addressed source archives
-- checksums and package immutability
-- publisher namespace model
+- [x] GitHub Organization and public repository
+- [x] GitHub Actions CI
+- [x] GitHub Pages deployment
+- [x] contribution/security documentation
+- [x] Release workflow
+- [x] Organization profile source
 
 ## M2 — CLI resolver
 
-- `asmory init`
-- `asmory search`
-- `asmory info`
-- `asmory add`
-- host ISA detection
-- target/Variant compatibility resolution
-- lockfile
+- [x] Assembly CLI executable
+- [x] `asmory target`
+- [x] x86-64 CPUID/XGETBV host ISA detection
+- [x] x86-64-v1/v2/v3/v4 baseline classification
+- [x] bootstrap `asmory search`
+- [x] bootstrap `asmory info`
+- [ ] remote registry client
+- [ ] `asmory init`
+- [ ] `asmory add`
+- [ ] target/Variant compatibility resolution
+- [ ] lockfile
 
-## M3 — Build/link pipeline
+## M3 — Real index/storage
 
-- GAS/NASM/LLVM-MC adapters
-- object-level dependency graph
-- section GC defaults
-- archive/static library support
-- symbol/export contract validation
+- [ ] package index binary format or compact JSON schema
+- [ ] package/version/Variant records
+- [ ] content-addressed source archives
+- [ ] checksums and package immutability
+- [ ] publisher namespace model
 
-## M4 — Publish/security
+## M4 — Build/link pipeline
 
-- authentication
-- package signing/provenance
-- immutable releases/yanking
-- ownership transfer
-- malicious object/source scanning
+- [ ] GAS/NASM/LLVM-MC adapters
+- [ ] object-level dependency graph
+- [ ] section GC defaults
+- [ ] archive/static library support
+- [ ] symbol/export contract validation
+
+## M5 — Publish/security
+
+- [ ] authentication
+- [ ] package signing/provenance
+- [ ] immutable releases/yanking
+- [ ] ownership transfer
+- [ ] malicious object/source scanning
