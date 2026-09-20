@@ -15,3 +15,9 @@
 /scripts/fix-*.sh
 /scripts/phase*-publish.sh
 /scripts/registry-v*-publish.sh
+
+# Local one-shot development / publishing helpers.
+# These are ChatGPT/user workflow scaffolding, not Asmory project source.
+/.asmory-local/
+/scripts/asm-first-linguist.sh
+/scripts/language-stats-*.sh
