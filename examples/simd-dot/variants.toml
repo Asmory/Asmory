@@ -31,3 +31,22 @@ contract = "performance.toml"
 #
 # [variant.performance]
 # contract = "performance.toml"
+
+[[variant]]
+id = "x86_64-avx2-fma-4acc"
+
+[variant.compatibility]
+arch = "x86_64"
+os = "linux"
+object = "elf64"
+abi = "sysv64"
+baseline = "x86-64-v3"
+required = ["avx2", "fma"]
+
+[variant.tuning]
+strategy = "four-independent-fma-accumulators"
+microarch = []
+
+[variant.performance]
+contract = "performance.toml"
+status = "experimental"

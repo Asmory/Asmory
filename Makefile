@@ -9,10 +9,16 @@ REGISTRY_BIN := $(BUILD)/asmory-registry
 CLI_OBJ := $(BUILD)/cli/main.o
 CLI_BIN := $(BUILD)/asmory
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
+TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
+VARIANT_BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/compare_variants.o
+VARIANT_BENCH_BIN := $(BUILD)/benchmarks/simd-dot-variants
+BENCH_OBJ := $(BUILD)/benchmarks/simd-dot/bench.o
+BENCH_BIN := $(BUILD)/benchmarks/simd-dot-bench
 PACKAGE_ARCHIVE := $(BUILD)/packages/simd-dot-0.1.0.tar.gz
+RELEASE_JSON := $(BUILD)/registry-data/simd-dot-0.1.0.json
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages run check smoke cli-smoke dev clean install-user
+.PHONY: all registry cli examples packages registry-data run check smoke cli-smoke dev clean install-user perf-build perf perf-variants
 
 all: registry cli examples
 
@@ -20,14 +26,19 @@ registry: $(REGISTRY_BIN)
 cli: $(CLI_BIN)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
+registry-data: $(RELEASE_JSON)
 
-$(BUILD)/registry $(BUILD)/cli $(BUILD)/examples/simd-dot $(BUILD)/packages:
+$(BUILD)/registry $(BUILD)/cli $(BUILD)/examples/simd-dot $(BUILD)/packages $(BUILD)/registry-data $(BUILD)/benchmarks/simd-dot $(BUILD)/performance:
 	mkdir -p $@
 
 $(PACKAGE_ARCHIVE): examples/simd-dot/asm.toml examples/simd-dot/src/dot.S | $(BUILD)/packages
 	tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf $@ -C examples simd-dot
 
-$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) | $(BUILD)/registry
+$(RELEASE_JSON): registry/data/simd-dot-release-0.1.0.json.in $(PACKAGE_ARCHIVE) scripts/render-release-json.sh | $(BUILD)/registry-data
+	./scripts/render-release-json.sh $(PACKAGE_ARCHIVE) registry/data/simd-dot-release-0.1.0.json.in $@
+
+
+$(REGISTRY_OBJ): registry/src/server.S $(STATIC) $(PACKAGE_ARCHIVE) $(RELEASE_JSON) | $(BUILD)/registry
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(REGISTRY_BIN): $(REGISTRY_OBJ)
@@ -41,6 +52,17 @@ $(CLI_BIN): $(CLI_OBJ)
 
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
+
+$(BENCH_OBJ): examples/simd-dot/bench/bench.S | $(BUILD)/benchmarks/simd-dot
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(BENCH_BIN): $(BENCH_OBJ) $(EXAMPLE_OBJ)
+	$(LD) $(LDFLAGS) $^ -o $@
+
+perf-build: $(BENCH_BIN)
+
+perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
+	./scripts/bench-simd-dot.sh
 
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
@@ -62,7 +84,7 @@ check: all
 	@echo 'bytes:'
 	@wc -c < $(CLI_BIN)
 	@echo '== embedded assets =='
-	@wc -c registry/static/* registry/data/* $(PACKAGE_ARCHIVE)
+	@wc -c registry/static/* registry/data/* $(PACKAGE_ARCHIVE) $(RELEASE_JSON)
 	@echo '== example symbols =='
 	@nm $(EXAMPLE_OBJ)
 
@@ -74,3 +96,15 @@ cli-smoke: $(CLI_BIN)
 
 clean:
 	rm -rf $(BUILD)
+
+$(TUNED_OBJ): examples/simd-dot/src/dot_4acc.S | $(BUILD)/examples/simd-dot
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(VARIANT_BENCH_OBJ): examples/simd-dot/bench/compare_variants.S | $(BUILD)/benchmarks/simd-dot
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(VARIANT_BENCH_BIN): $(VARIANT_BENCH_OBJ) $(EXAMPLE_OBJ) $(TUNED_OBJ)
+	$(LD) $(LDFLAGS) $^ -o $@
+
+perf-variants: $(VARIANT_BENCH_BIN)
+	./scripts/bench-simd-dot-variants.sh
