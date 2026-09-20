@@ -320,6 +320,7 @@ asmory restore simd-dot
 asmory patch simd-dot
 asmory reapply simd-dot
 asmory vendor simd-dot
+asmory workspace
 asmory --version
 ```
 
@@ -328,6 +329,17 @@ Install the locally built CLI:
 ```bash
 make install-user
 ```
+
+## Repository workspace model
+
+A repository may contain multiple independent Asmory Packages.
+
+Repository layout is a development concern. Package identity, Release history,
+Variants and Artifacts remain independent. Source Releases may record
+`repository + commit + subdir` provenance, while exact distribution identity
+remains the Artifact SHA-256.
+
+See [`spec/REPOSITORY_WORKSPACE.md`](spec/REPOSITORY_WORKSPACE.md).
 
 ## Package model
 

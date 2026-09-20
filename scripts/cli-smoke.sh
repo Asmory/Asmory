@@ -2,6 +2,8 @@
 set -euo pipefail
 
 BIN="${1:-./build/asmory}"
+BIN_DIR="$(cd "$(dirname "$BIN")" && pwd)"
+export PATH="$BIN_DIR:$PATH"
 
 "$BIN" --version | grep -q '^asmory '
 "$BIN" --help | grep -q 'asmory add <package>'
@@ -10,6 +12,11 @@ BIN="${1:-./build/asmory}"
 "$BIN" --help | grep -q 'asmory patch <package>'
 "$BIN" --help | grep -q 'asmory reapply <package>'
 "$BIN" --help | grep -q 'asmory vendor <package>'
+"$BIN" --help | grep -q 'asmory workspace \[list|check\]'
+workspace="$("$BIN" workspace)"
+grep -q '^Asmory repository workspace' <<<"$workspace"
+grep -q '^simd-dot 0.1.0$' <<<"$workspace"
+
 target="$("$BIN" target)"
 grep -q '^Asmory host target' <<<"$target"
 grep -q 'arch         x86_64' <<<"$target"

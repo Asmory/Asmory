@@ -8,6 +8,7 @@ cmd_restore:    .asciz "restore"
 cmd_patch:      .asciz "patch"
 cmd_reapply:    .asciz "reapply"
 cmd_vendor:     .asciz "vendor"
+cmd_workspace:  .asciz "workspace"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -27,7 +28,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -62,6 +63,10 @@ missing_vendor_msg: .asciz "asmory vendor: package name required\n"
 vendor_backend_msg: .asciz "asmory vendor: bootstrap vendor backend unavailable\n"
 vendor_shell_cmd:   .asciz "exec asmory-vendor \"$@\""
 vendor_argv0:       .asciz "asmory-vendor"
+workspace_backend_msg:.asciz "asmory workspace: bootstrap workspace backend unavailable\n"
+workspace_usage_msg:  .asciz "asmory workspace: usage: asmory workspace [list|check]\n"
+workspace_shell_cmd:  .asciz "exec asmory-workspace \"${1:-list}\""
+workspace_argv0:      .asciz "asmory-workspace"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -300,6 +305,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_vendor
+
+    mov %r13, %rdi
+    lea cmd_workspace(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_workspace
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -844,6 +855,48 @@ _start:
 
 .missing_vendor:
     lea missing_vendor_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_workspace:
+    cmp $4, %r12
+    jae .workspace_usage
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea workspace_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea workspace_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+
+    cmp $3, %r12
+    jb .workspace_no_arg
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+    jmp .workspace_exec
+
+.workspace_no_arg:
+    movq $0, 32(%r10)
+
+.workspace_exec:
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea workspace_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.workspace_usage:
+    lea workspace_usage_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

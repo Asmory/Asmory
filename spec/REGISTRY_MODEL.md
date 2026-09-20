@@ -49,6 +49,19 @@ exports.
 An Artifact is a downloadable file belonging to a Release. Every artifact has
 a stable filename, byte size and cryptographic digest.
 
+## Development repository and source provenance
+
+A Git repository is not a fifth Registry identity object.
+
+One repository may develop many independent Asmory Projects / Packages.
+
+A Release may carry descriptive Git provenance: repository URL, commit and
+Package subdirectory. This lets development tools find exact upstream source
+without making repository layout resolver authority.
+
+Repository membership never merges Package identities. Artifact SHA-256
+remains the exact distribution identity.
+
 ## Resolver order
 
 ```text

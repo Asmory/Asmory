@@ -87,3 +87,12 @@ Runtime staging under `.asmory/.delta/` remains ignored.
 `vendor/` is ordinary project source and is intentionally not ignored.
 
 Temporary transaction state under `.asmory/.vendor/` is ignored.
+
+## Repository development workspaces are separate
+
+The consumer/project workspace in this document uses `asm.toml` for dependency
+intent. A development monorepo uses `asmory.workspace.toml` plus per-member
+`asmory.package.toml` files. The two models are deliberately separate in
+Draft 0.1.
+
+See `REPOSITORY_WORKSPACE.md`.

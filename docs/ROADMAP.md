@@ -70,6 +70,12 @@
 - [x] project-owned path dependency + Registry provenance
 - [x] transactional vendor ownership handoff
 - [x] Registry lifecycle refusal for vendored source
+- [x] multi-package repository workspace model
+- [x] explicit Package-root self-contained boundary
+- [x] deterministic workspace-member source packaging
+- [x] existing Release identity preserved across workspace metadata migration
+- [x] publish provenance model: repository + commit + subdir
+- [x] dirty-worktree publish provenance guard
 - [ ] fork/publication transition
 
 ## M3 — Real index/storage

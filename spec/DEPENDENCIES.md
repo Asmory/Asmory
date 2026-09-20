@@ -317,6 +317,17 @@ The lockfile retains Registry ancestry but marks the active source as `vendor`.
 Registry-oriented restore/patch/reapply commands refuse to silently retake
 control of project-owned source.
 
+## Repository boundaries do not leak into dependency state
+
+A dependency is resolved, materialized, marked Exact/Modified, patched,
+vendored, restored and eventually forked at Package granularity.
+
+If several Packages share one Git repository, modifying one Package does not
+make sibling Packages dirty.
+
+Shared reusable source across Package roots must be represented explicitly as
+a Package dependency rather than an implicit include escaping the Package root.
+
 ## Leaf-first default
 
 Asmory v1 should default to direct, leaf dependencies.

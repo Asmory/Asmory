@@ -1,0 +1,7 @@
+schema = 1
+
+[workspace]
+repository = "https://github.com/Asmory/Asmory"
+members = [
+    "examples/simd-dot",
+]
