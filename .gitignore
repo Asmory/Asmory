@@ -4,3 +4,14 @@
 *.so
 *.log
 .DS_Store
+
+# Local one-shot bootstrap / maintenance helpers.
+/install-into-asmory.sh
+/scripts/*-publish.sh
+/scripts/publish-*.sh
+/scripts/resume-*.sh
+/scripts/theme-*.sh
+/scripts/update-*.sh
+/scripts/fix-*.sh
+/scripts/phase*-publish.sh
+/scripts/registry-v*-publish.sh

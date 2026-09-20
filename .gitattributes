@@ -1,0 +1,32 @@
+# Asmory is an Assembly-first package registry.
+# Keep GitHub's language bar focused on implementation code rather than
+# documentation, web presentation assets, CI glue, or maintenance scripts.
+
+# Explicitly classify assembly sources.
+*.S linguist-language=Assembly
+*.s linguist-language=Assembly
+*.asm linguist-language=Assembly
+
+# Registry UI is presentation, not the implementation language.
+registry/static/** linguist-documentation
+
+# Package metadata / registry fixtures are data.
+registry/data/** linguist-generated
+
+# GitHub Pages and organization profile are documentation/presentation.
+site/** linguist-documentation
+org/** linguist-documentation
+
+# Specs and docs are documentation.
+docs/** linguist-documentation
+spec/** linguist-documentation
+
+# CI and repository metadata are infrastructure.
+.github/** linguist-documentation
+
+# Shell is build/test/release/maintenance glue, not Asmory's core language.
+scripts/*.sh -linguist-detectable
+install-into-asmory.sh -linguist-detectable
+
+# Build orchestration should not influence the language bar.
+Makefile -linguist-detectable
