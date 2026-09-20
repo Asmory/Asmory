@@ -271,6 +271,31 @@ resolution.
 A missing local tree is reported as `Missing` and can also be restored from the
 locked Artifact.
 
+## Reproducible Modified handoff
+
+A Modified tree must not become invisible project state.
+
+The first capture workflow is:
+
+```text
+edit local dependency
+    -> Modified / uncaptured
+asmory patch <package>
+    -> Modified / captured-patch
+asmory restore <package>
+    -> Exact / saved patch remains
+asmory reapply <package>
+    -> Modified / captured-patch
+```
+
+Captured deltas live under `.asmory/patches/`, which is intentionally not
+ignored by the workspace.
+
+This allows Git to carry the divergence while `.asmory/deps/` remains a
+reconstructible working materialization.
+
+`reapply` refuses to overwrite unrelated uncaptured local work.
+
 ## Leaf-first default
 
 Asmory v1 should default to direct, leaf dependencies.

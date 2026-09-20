@@ -62,6 +62,12 @@
 - [x] Missing operational state
 - [x] `asmory restore` exact locked-Artifact recovery
 - [x] restore rollback / corrupt-cache preservation tests
+- [x] deterministic local delta capture
+- [x] Git-visible `.asmory/patches/` handoff
+- [x] captured/uncaptured divergence status
+- [x] offline transactional `asmory reapply`
+- [ ] explicit vendor transition
+- [ ] fork/publication transition
 
 ## M3 — Real index/storage
 

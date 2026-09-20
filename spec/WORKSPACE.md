@@ -69,3 +69,12 @@ The workspace foundation creates this directory. `asmory add` fills it only afte
 - refuses a partial state where only one of those files exists.
 
 Acquisition, content-addressed cache, safe materialization, and computed local integrity are separate implemented stages. `asmory status` is local-only and `asmory restore` reconstructs the exact locked dependency.
+
+## `.asmory/patches/` — captured divergence
+
+Unlike `.asmory/deps/`, this directory is intentionally not ignored.
+
+Deterministic local delta records live here so a Modified dependency can be
+handed off through Git without committing the whole materialized dependency.
+
+Runtime staging under `.asmory/.delta/` remains ignored.

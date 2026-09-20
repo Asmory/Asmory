@@ -67,6 +67,24 @@ tree fingerprint, and replaces the local tree.
 
 Manifest and lockfile remain unchanged.
 
+## Divergence capture is a separate axis
+
+A Modified tree may still be either reproducible or only local:
+
+```text
+Modified / uncaptured
+Modified / captured-patch
+```
+
+`asmory status` therefore reports `divergence` independently from integrity.
+
+An active deterministic patch under `.asmory/patches/<package>/` is considered
+captured only when its target tree fingerprint exactly equals the current local
+tree.
+
+A later local edit immediately returns divergence to `uncaptured` without
+deleting the saved patch.
+
 ## Important distinction
 
 ```text

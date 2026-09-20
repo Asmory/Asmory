@@ -13,6 +13,7 @@ CACHE_HELPER := $(BUILD)/asmory-cache
 ADD_HELPER := $(BUILD)/asmory-add
 MATERIALIZE_HELPER := $(BUILD)/asmory-materialize
 STATE_HELPER := $(BUILD)/asmory-state
+DELTA_HELPER := $(BUILD)/asmory-delta
 CLI_REGISTRY_INC := $(BUILD)/generated/cli_registry.inc
 EXAMPLE_OBJ := $(BUILD)/examples/simd-dot/dot.o
 TUNED_OBJ := $(BUILD)/examples/simd-dot/dot_4acc.o
@@ -33,12 +34,12 @@ PROFILE_STRICT_JSON := $(BUILD)/registry-data/profile-simd-dot-strict-v1.json
 SIMD_DOT_PACKAGE_INPUTS := $(shell find examples/simd-dot -type f -print | sort)
 STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 
-.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
+.PHONY: all registry cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke dev clean install-user perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 
 all: registry cli examples
 
 registry: $(REGISTRY_BIN)
-cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER)
+cli: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -103,6 +104,10 @@ $(STATE_HELPER): scripts/asmory-state.py | $(BUILD)/cli
 	cp $< $@
 	chmod 0755 $@
 
+$(DELTA_HELPER): scripts/asmory-delta.py | $(BUILD)/cli
+	cp $< $@
+	chmod 0755 $@
+
 $(EXAMPLE_OBJ): examples/simd-dot/src/dot.S | $(BUILD)/examples/simd-dot
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -123,14 +128,15 @@ perf: $(BENCH_BIN) $(PACKAGE_ARCHIVE)
 run: $(REGISTRY_BIN)
 	./$(REGISTRY_BIN)
 
-install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER)
+install-user: $(CLI_BIN) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER)
 	install -Dm755 $(CLI_BIN) $(HOME)/.local/bin/asmory
 	install -Dm755 $(ACQUIRE_HELPER) $(HOME)/.local/bin/asmory-acquire
 	install -Dm755 $(CACHE_HELPER) $(HOME)/.local/bin/asmory-cache
 	install -Dm755 $(ADD_HELPER) $(HOME)/.local/bin/asmory-add
 	install -Dm755 $(MATERIALIZE_HELPER) $(HOME)/.local/bin/asmory-materialize
 	install -Dm755 $(STATE_HELPER) $(HOME)/.local/bin/asmory-state
-	@echo 'installed: asmory + acquisition/cache/add/materialize/state helpers'
+	install -Dm755 $(DELTA_HELPER) $(HOME)/.local/bin/asmory-delta
+	@echo 'installed: asmory + acquisition/cache/add/materialize/state/delta helpers'
 
 dev: clean all check smoke cli-smoke
 
@@ -169,6 +175,9 @@ add-smoke: registry cli packages
 
 state-smoke: registry cli packages
 	./scripts/state-smoke.sh
+
+delta-smoke: registry cli packages
+	./scripts/delta-smoke.sh
 
 clean:
 	rm -rf $(BUILD)

@@ -5,6 +5,8 @@ cmd_cache:      .asciz "cache"
 cmd_add:        .asciz "add"
 cmd_status:     .asciz "status"
 cmd_restore:    .asciz "restore"
+cmd_patch:      .asciz "patch"
+cmd_reapply:    .asciz "reapply"
 cmd_target:     .asciz "target"
 cmd_info:       .asciz "info"
 cmd_search:     .asciz "search"
@@ -24,7 +26,7 @@ pkg_simd_dot:   .asciz "simd-dot"
 .include "build/generated/cli_registry.inc"
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -48,6 +50,13 @@ missing_restore_msg:.asciz "asmory restore: package name required\n"
 status_shell_cmd:   .asciz "exec asmory-state status \"$@\""
 restore_shell_cmd:  .asciz "exec asmory-state restore \"$@\""
 state_argv0:        .asciz "asmory-state"
+missing_patch_msg:  .asciz "asmory patch: package name required\n"
+patch_backend_msg:  .asciz "asmory patch: bootstrap delta backend unavailable\n"
+missing_reapply_msg:.asciz "asmory reapply: package name required\n"
+reapply_backend_msg:.asciz "asmory reapply: bootstrap delta backend unavailable\n"
+patch_shell_cmd:    .asciz "exec asmory-delta capture \"$@\""
+reapply_shell_cmd:  .asciz "exec asmory-delta reapply \"$@\""
+delta_argv0:        .asciz "asmory-delta"
 sh_path:          .asciz "/bin/sh"
 sh_name:          .asciz "sh"
 sh_c:             .asciz "-c"
@@ -104,6 +113,7 @@ init_ignore_body:
 .ascii "deps/\n"
 .ascii ".staging/\n"
 .ascii ".restore/\n"
+.ascii ".delta/\n"
 .ascii "workspace.lock\n"
 init_ignore_body_end:
 
@@ -266,6 +276,18 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_restore
+
+    mov %r13, %rdi
+    lea cmd_patch(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_patch
+
+    mov %r13, %rdi
+    lea cmd_reapply(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_reapply
 
     mov %r13, %rdi
     lea cmd_target(%rip), %rsi
@@ -708,6 +730,74 @@ _start:
 
 .missing_restore:
     lea missing_restore_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_patch:
+    cmp $3, %r12
+    jb .missing_patch
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea patch_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea delta_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea patch_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_patch:
+    lea missing_patch_msg(%rip), %rdi
+    call print_cstr
+    mov $2, %edi
+    jmp exit_process
+
+.do_reapply:
+    cmp $3, %r12
+    jb .missing_reapply
+
+    lea acquire_exec_argv(%rip), %r10
+    lea sh_name(%rip), %rax
+    mov %rax, 0(%r10)
+    lea sh_c(%rip), %rax
+    mov %rax, 8(%r10)
+    lea reapply_shell_cmd(%rip), %rax
+    mov %rax, 16(%r10)
+    lea delta_argv0(%rip), %rax
+    mov %rax, 24(%r10)
+    mov 24(%rsp), %rax
+    mov %rax, 32(%r10)
+    movq $0, 40(%r10)
+
+    lea sh_path(%rip), %rdi
+    mov %r10, %rsi
+    mov envp_ptr(%rip), %rdx
+    mov $59, %eax
+    syscall
+
+    lea reapply_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
+.missing_reapply:
+    lea missing_reapply_msg(%rip), %rdi
     call print_cstr
     mov $2, %edi
     jmp exit_process

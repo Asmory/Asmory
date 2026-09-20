@@ -7,6 +7,8 @@ BIN="${1:-./build/asmory}"
 "$BIN" --help | grep -q 'asmory add <package>'
 "$BIN" --help | grep -q 'asmory status'
 "$BIN" --help | grep -q 'asmory restore <package>'
+"$BIN" --help | grep -q 'asmory patch <package>'
+"$BIN" --help | grep -q 'asmory reapply <package>'
 target="$("$BIN" target)"
 grep -q '^Asmory host target' <<<"$target"
 grep -q 'arch         x86_64' <<<"$target"

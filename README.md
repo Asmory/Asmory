@@ -317,6 +317,8 @@ asmory cache simd-dot
 asmory add simd-dot
 asmory status
 asmory restore simd-dot
+asmory patch simd-dot
+asmory reapply simd-dot
 asmory --version
 ```
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -198,6 +199,65 @@ def dependency_state(root: Path, dep: dict) -> tuple[str, str | None]:
     return ("Exact" if actual == baseline else "Modified", actual)
 
 
+
+def patch_capture_state(
+    root: Path,
+    dep: dict,
+    state: str,
+    actual: str | None,
+) -> tuple[str, str, str]:
+    package_root = root / ".asmory" / "patches" / dep["name"]
+    active_path = package_root / "active"
+
+    if not active_path.is_file() or active_path.is_symlink():
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "-", "-"
+
+    try:
+        delta_sha = active_path.read_text().strip()
+    except OSError:
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "invalid", "-"
+
+    if len(delta_sha) != 64 or any(c not in "0123456789abcdef" for c in delta_sha):
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "invalid", "-"
+
+    manifest_path = package_root / "deltas" / f"{delta_sha}.json"
+
+    try:
+        raw = manifest_path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != delta_sha:
+            raise ValueError("manifest digest mismatch")
+        manifest = json.loads(raw)
+    except (OSError, ValueError, json.JSONDecodeError):
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "invalid", "-"
+
+    if (
+        manifest.get("schema") != 1
+        or manifest.get("format") != "asmory-delta-v1"
+        or manifest.get("package") != dep["name"]
+        or manifest.get("base_artifact_sha256") != dep.get("artifact_sha256")
+        or manifest.get("base_tree_sha256") != dep.get("materialized_tree_sha256")
+    ):
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "invalid", "-"
+
+    target = manifest.get("target_tree_sha256")
+    if not isinstance(target, str) or len(target) != 64:
+        divergence = "uncaptured" if state == "Modified" else ("none" if state == "Exact" else "-")
+        return divergence, "invalid", "-"
+
+    if state == "Modified":
+        divergence = "captured-patch" if actual == target else "uncaptured"
+    elif state == "Exact":
+        divergence = "none"
+    else:
+        divergence = "-"
+
+    return divergence, delta_sha, target
+
 def print_status(root: Path, data: dict) -> int:
     deps = data["dependency"]
 
@@ -210,12 +270,21 @@ def print_status(root: Path, data: dict) -> int:
 
     for index, dep in enumerate(deps):
         state, actual = dependency_state(root, dep)
+        divergence, saved_patch, patch_tree = patch_capture_state(
+            root,
+            dep,
+            state,
+            actual,
+        )
 
         if index:
             print()
 
         print(f"{dep['name']} {dep.get('release', '?')}")
         print(f"  state       {state}")
+        print(f"  divergence  {divergence}")
+        print(f"  saved patch {saved_patch}")
+        print(f"  patch tree  {patch_tree}")
         print(f"  artifact    {dep.get('artifact_sha256', '?')}")
         print(f"  base tree   {dep.get('materialized_tree_sha256', 'unknown')}")
         print(f"  local tree  {actual if actual is not None else '-'}")

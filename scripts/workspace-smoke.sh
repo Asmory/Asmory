@@ -35,6 +35,7 @@ grep -q '^dependency_count = 0$' asm.lock
 grep -q '^deps/$' .asmory/.gitignore
 grep -q '^\.staging/$' .asmory/.gitignore
 grep -q '^\.restore/$' .asmory/.gitignore
+grep -q '^\.delta/$' .asmory/.gitignore
 grep -q '^workspace\.lock$' .asmory/.gitignore
 
 before_manifest="$(sha256sum asm.toml | awk '{print $1}')"

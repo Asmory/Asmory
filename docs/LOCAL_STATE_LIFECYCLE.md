@@ -32,5 +32,5 @@ This implements the core rule:
 
 > **Local-visible by default, Git-tracked when diverged.**
 
-The next lifecycle milestone can build on Modified state with explicit vendor,
-patch, and fork transitions.
+The next lifecycle layer now implements deterministic patch capture/reapply for
+Modified dependencies. Vendor and fork remain explicit future alternatives.
